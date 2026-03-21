@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🏥 Hospital Management System
 
 A full‑stack hospital management platform with role‑based dashboards, AI skin scanning, lab result management, and a chatbot.
@@ -82,3 +83,7 @@ A full‑stack hospital management platform with role‑based dashboards, AI ski
     ✉️ kokulankugathasan2003@gmail.com
     🔗 linkedin.com/in/kokulan-kugathasan
 
+=======
+# hospital-management-system
+A full-stack hospital management system with role-based dashboards, AI skin scanner, lab results, and chatbot. Built with MERN, Cloudinary, Tailwind CSS.
+>>>>>>> 5f3a6f31fc443035b4c021a75acd67206e4af1ac
