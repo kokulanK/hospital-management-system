@@ -1,7 +1,11 @@
+// frontend/src/api/axios.js
 import axios from 'axios';
 
 const instance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: 'https://hospital-backend.onrender.com/api', // includes /api
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
 // Request interceptor to add token
