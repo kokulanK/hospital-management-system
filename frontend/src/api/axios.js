@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 const instance = axios.create({
-  // Use the correct backend URL – replace with your actual deployed backend
-  baseURL: 'https://hospital-backend-myqc.onrender.com/api', // <-- include /api
+  // Use environment variable for flexibility, but fallback to the working URL
+  baseURL: import.meta.env.VITE_API_URL || 'https://hospital-backend-myqc.onrender.com/api',
   headers: {
     'Content-Type': 'application/json',
   },
