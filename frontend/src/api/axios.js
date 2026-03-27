@@ -1,8 +1,8 @@
-// frontend/src/api/axios.js
 import axios from 'axios';
 
 const instance = axios.create({
-  baseURL: 'https://hospital-backend.onrender.com/api', // includes /api
+  // Use the correct backend URL – replace with your actual deployed backend
+  baseURL: 'https://hospital-backend-myqc.onrender.com/api', // <-- include /api
   headers: {
     'Content-Type': 'application/json',
   },
