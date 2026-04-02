@@ -134,7 +134,7 @@ No environment file needed – it runs on port 8001.
 
     cd ai-service
     # Create a virtual environment (optional)
-    cd D:\Y2S2\Final\hospital-management-system\ai-service
+    cd\Y2S2\Final\hospital-management-system\ai-service
 
         # Create a Virtual Environment
 
