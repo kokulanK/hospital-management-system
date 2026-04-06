@@ -135,7 +135,6 @@ export default function DashboardLayout({ children, activePage }) {
         }
       `}</style>
 
-      {/* ── Sidebar ── */}
       <aside
         className="sidebar fixed top-0 left-0 h-screen w-20 flex flex-col items-center justify-between py-5"
         style={{
@@ -144,7 +143,6 @@ export default function DashboardLayout({ children, activePage }) {
           boxShadow: '2px 0 20px rgba(0,0,0,0.04)',
         }}
       >
-        {/* Logo mark */}
         <div style={{ marginBottom: '8px' }}>
           <div
             style={{
@@ -163,7 +161,6 @@ export default function DashboardLayout({ children, activePage }) {
           </div>
         </div>
 
-        {/* Nav links */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, justifyContent: 'center' }}>
           {links.map(({ to, icon: Icon, label, key }) => (
             <a
@@ -177,17 +174,14 @@ export default function DashboardLayout({ children, activePage }) {
           ))}
         </div>
 
-        {/* Logout */}
         <button onClick={handleLogout} className="logout-btn">
           <FaSignOutAlt size={20} />
           <span className="sidebar-tooltip">Logout</span>
         </button>
       </aside>
 
-      {/* ── Main content ── */}
       <main className="dash-main flex-1 ml-20 p-8 min-h-screen" style={{ background: '#f8faff' }}>
         {children}
-        {/* ── Chatbot for patients only ── */}
         {role === 'patient' && <Chatbot />}
       </main>
     </div>
