@@ -19,6 +19,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const cleaningTaskRoutes = require('./routes/cleaningTaskRoutes');
 const supplyRequestRoutes = require('./routes/supplyRequestRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const patientRoutes = require('./routes/patientRoutes'); // ✅ NEW
 
 const User = require('./models/User');
 const bcrypt = require('bcryptjs');
@@ -104,6 +105,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/cleaning-tasks', cleaningTaskRoutes);
 app.use('/api/supply-requests', supplyRequestRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/patient', patientRoutes); // ✅ NEW
 
 // ===============================
 // Server Start

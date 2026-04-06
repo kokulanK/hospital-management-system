@@ -1,0 +1,82 @@
+const User = require('../models/User');
+const Appointment = require('../models/Appointment');
+const Feedback = require('../models/Feedback');
+const SkinImage = require('../models/SkinImage');
+const OpenAI = require('openai');
+
+let openai = null;
+if (process.env.OPENAI_API_KEY) {
+  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+}
+
+// @desc    Get personalized health tip for patient
+// @route   GET /api/patient/tip
+// @access  Private (patient)
+const getPersonalizedTip = async (req, res) => {
+  try {
+    const patientId = req.user._id;
+
+    // Fetch recent data (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const appointments = await Appointment.find({
+      patient: patientId,
+      date: { $gte: thirtyDaysAgo }
+    }).populate('doctor', 'specialization name');
+
+    const skinScans = await SkinImage.find({
+      user: patientId,
+      createdAt: { $gte: thirtyDaysAgo }
+    });
+
+    const feedbacks = await Feedback.find({
+      patient: patientId,
+      createdAt: { $gte: thirtyDaysAgo }
+    });
+
+    // Build context for AI
+    let context = `Patient ${req.user.name} has:\n`;
+    if (appointments.length) {
+      context += `- ${appointments.length} recent appointments with doctors specializing in: ${appointments.map(a => a.doctor?.specialization || 'general medicine').join(', ')}\n`;
+    }
+    if (skinScans.length) {
+      const analysisText = skinScans.map(s => s.analysisResult || 'no analysis').join('; ');
+      context += `- Skin scan analysis: ${analysisText}\n`;
+    }
+    if (feedbacks.length) {
+      const avgRating = feedbacks.reduce((sum, f) => sum + f.rating, 0) / feedbacks.length;
+      context += `- Average feedback rating: ${avgRating.toFixed(1)}/5\n`;
+    }
+
+    // If no recent data, use a fallback
+    if (!appointments.length && !skinScans.length && !feedbacks.length) {
+      context = "The patient has no recent activity. Provide a general wellness tip.";
+    }
+
+    const prompt = `You are a friendly health assistant. Based on the following patient data, generate ONE short, personalized health tip (max 30 words). Be positive and actionable. Do not include disclaimers or markdown.\n\nPatient data:\n${context}\n\nTip:`;
+
+    let tip = "Stay hydrated and take short breaks to move around – your body will thank you!";
+    if (openai) {
+      try {
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-3.5-turbo',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 60,
+          temperature: 0.7,
+        });
+        tip = completion.choices[0].message.content.trim();
+      } catch (err) {
+        console.error('OpenAI tip generation failed:', err.message);
+        // fallback tip already set
+      }
+    }
+
+    res.json({ tip });
+  } catch (error) {
+    console.error('Tip error:', error);
+    res.status(500).json({ message: 'Could not generate tip' });
+  }
+};
+
+module.exports = { getPersonalizedTip };
