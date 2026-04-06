@@ -18,8 +18,16 @@ export default function LabReports() {
       const { data } = await api.get('/lab-requests/patient');
       setReports(data);
     } catch (err) {
-      console.error(err);
-      setError('Failed to load lab reports. Please try again later.');
+      console.error('Lab reports error:', err);
+      let errorMsg = 'Failed to load lab reports. ';
+      if (err.response?.status === 403) {
+        errorMsg += 'Access denied. Please log in as a patient.';
+      } else if (err.response?.status === 401) {
+        errorMsg += 'Please log in again.';
+      } else {
+        errorMsg += 'Please try again later.';
+      }
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -56,7 +64,6 @@ export default function LabReports() {
       `}</style>
 
       <div className="max-w-4xl mx-auto space-y-6 pb-10">
-        {/* Hero */}
         <div className="hero-lab-reports rounded-2xl p-7 md:p-9 text-white">
           <h1 className="display-font text-3xl font-semibold">My Lab Reports</h1>
           <p className="text-blue-100 text-sm mt-2">
@@ -64,7 +71,6 @@ export default function LabReports() {
           </p>
         </div>
 
-        {/* Error message */}
         {error && (
           <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-600">
             <FaTimesCircle className="text-red-400 flex-shrink-0" />
@@ -75,7 +81,6 @@ export default function LabReports() {
           </div>
         )}
 
-        {/* Reports list */}
         {reports.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center">
             <FaFlask className="text-gray-200 text-4xl mx-auto mb-3" />
@@ -109,7 +114,6 @@ export default function LabReports() {
                     </div>
                   </div>
 
-                  {/* Result file preview & download */}
                   {report.resultFile && (
                     <div className="mt-4 border-t pt-4">
                       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1">
