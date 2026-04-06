@@ -4,19 +4,25 @@ const Feedback = require('../models/Feedback');
 const SkinImage = require('../models/SkinImage');
 const OpenAI = require('openai');
 
-// ---------- AI Client Initialization ----------
+// ---------- AI Client Initialization (auto-detect Groq vs OpenAI) ----------
 let aiClient = null;
-const AI_PROVIDER = process.env.AI_PROVIDER || 'openai'; // 'groq' or 'openai'
+let aiProvider = 'none';
+const apiKey = process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY;
 
-if (AI_PROVIDER === 'groq' && process.env.GROQ_API_KEY) {
-  aiClient = new OpenAI({
-    baseURL: 'https://api.groq.com/openai/v1',
-    apiKey: process.env.GROQ_API_KEY,
-  });
-  console.log('Using Groq API for health tips');
-} else if (process.env.OPENAI_API_KEY) {
-  aiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  console.log('Using OpenAI API for health tips');
+if (apiKey) {
+  // Detect Groq key (starts with 'gsk_')
+  if (apiKey.startsWith('gsk_')) {
+    aiClient = new OpenAI({
+      baseURL: 'https://api.groq.com/openai/v1',
+      apiKey: apiKey,
+    });
+    aiProvider = 'groq';
+    console.log('Using Groq API for health tips');
+  } else {
+    aiClient = new OpenAI({ apiKey: apiKey });
+    aiProvider = 'openai';
+    console.log('Using OpenAI API for health tips');
+  }
 } else {
   console.warn('No AI API key – using fallback tips');
 }
@@ -61,7 +67,6 @@ const getPersonalizedTip = async (req, res) => {
       context += `- Average feedback rating: ${avgRating.toFixed(1)}/5\n`;
     }
 
-    // If no recent data, use a fallback
     if (!appointments.length && !skinScans.length && !feedbacks.length) {
       context = "The patient has no recent activity. Provide a general wellness tip.";
     }
@@ -71,7 +76,7 @@ const getPersonalizedTip = async (req, res) => {
     let tip = "Stay hydrated and take short breaks to move around – your body will thank you!";
     if (aiClient) {
       try {
-        const model = AI_PROVIDER === 'groq' ? 'llama-3.3-70b-versatile' : 'gpt-3.5-turbo';
+        const model = aiProvider === 'groq' ? 'llama-3.3-70b-versatile' : 'gpt-3.5-turbo';
         const completion = await aiClient.chat.completions.create({
           model,
           messages: [{ role: 'user', content: prompt }],
@@ -79,7 +84,7 @@ const getPersonalizedTip = async (req, res) => {
           temperature: 0.7,
         });
         tip = completion.choices[0].message.content.trim();
-        console.log('AI tip generated successfully');
+        console.log('AI tip generated successfully using', aiProvider);
       } catch (err) {
         console.error('AI tip generation failed:', err.message);
         // fallback tip already set
