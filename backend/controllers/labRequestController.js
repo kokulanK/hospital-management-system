@@ -45,7 +45,7 @@ const getDoctorLabRequests = async (req, res) => {
 const getLabTechnicianRequests = async (req, res) => {
   try {
     const requests = await LabRequest.find({
-      status: { $in: ['pending', 'accepted', 'completed'] } // ✅ Include completed
+      status: { $in: ['pending', 'accepted', 'completed'] }
     })
       .populate('doctor', 'name email')
       .populate('patient', 'name email')
@@ -207,7 +207,6 @@ const deleteLabRequest = async (req, res) => {
         return res.status(400).json({ message: 'Cannot delete request after acceptance' });
 
     } else if (req.user.role === 'labTechnician') {
-      // ✅ Allow deletion for both accepted and completed requests
       if (!['accepted', 'completed'].includes(request.status))
         return res.status(400).json({ message: 'Can only delete accepted or completed requests' });
 
@@ -226,6 +225,9 @@ const deleteLabRequest = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// ================= NEW FUNCTION FOR PATIENTS =================
+
 // @desc    Get completed lab requests for logged-in patient
 // @route   GET /api/lab-requests/patient
 // @access  Private (patient)
@@ -255,5 +257,5 @@ module.exports = {
   getLabRequestById,
   updateLabRequest,
   deleteLabRequest,
-  getPatientLabRequests
+  getPatientLabRequests   // <-- make sure this is included
 };
