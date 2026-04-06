@@ -4,9 +4,21 @@ const Feedback = require('../models/Feedback');
 const SkinImage = require('../models/SkinImage');
 const OpenAI = require('openai');
 
-let openai = null;
-if (process.env.OPENAI_API_KEY) {
-  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// ---------- AI Client Initialization ----------
+let aiClient = null;
+const AI_PROVIDER = process.env.AI_PROVIDER || 'openai'; // 'groq' or 'openai'
+
+if (AI_PROVIDER === 'groq' && process.env.GROQ_API_KEY) {
+  aiClient = new OpenAI({
+    baseURL: 'https://api.groq.com/openai/v1',
+    apiKey: process.env.GROQ_API_KEY,
+  });
+  console.log('Using Groq API for health tips');
+} else if (process.env.OPENAI_API_KEY) {
+  aiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  console.log('Using OpenAI API for health tips');
+} else {
+  console.warn('No AI API key – using fallback tips');
 }
 
 // @desc    Get personalized health tip for patient
@@ -57,17 +69,19 @@ const getPersonalizedTip = async (req, res) => {
     const prompt = `You are a friendly health assistant. Based on the following patient data, generate ONE short, personalized health tip (max 30 words). Be positive and actionable. Do not include disclaimers or markdown.\n\nPatient data:\n${context}\n\nTip:`;
 
     let tip = "Stay hydrated and take short breaks to move around – your body will thank you!";
-    if (openai) {
+    if (aiClient) {
       try {
-        const completion = await openai.chat.completions.create({
-          model: 'gpt-3.5-turbo',
+        const model = AI_PROVIDER === 'groq' ? 'llama-3.3-70b-versatile' : 'gpt-3.5-turbo';
+        const completion = await aiClient.chat.completions.create({
+          model,
           messages: [{ role: 'user', content: prompt }],
           max_tokens: 60,
           temperature: 0.7,
         });
         tip = completion.choices[0].message.content.trim();
+        console.log('AI tip generated successfully');
       } catch (err) {
-        console.error('OpenAI tip generation failed:', err.message);
+        console.error('AI tip generation failed:', err.message);
         // fallback tip already set
       }
     }

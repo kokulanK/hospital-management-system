@@ -5,12 +5,21 @@ const SkinImage = require('../models/SkinImage');
 const User = require('../models/User');
 const OpenAI = require('openai');
 
-// Initialize OpenAI if key present
-let openai = null;
-if (process.env.OPENAI_API_KEY) {
-  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// ---------- AI Client Initialization ----------
+let aiClient = null;
+const AI_PROVIDER = process.env.AI_PROVIDER || 'openai'; // 'groq' or 'openai'
+
+if (AI_PROVIDER === 'groq' && process.env.GROQ_API_KEY) {
+  aiClient = new OpenAI({
+    baseURL: 'https://api.groq.com/openai/v1',
+    apiKey: process.env.GROQ_API_KEY,
+  });
+  console.log('Using Groq API for chatbot');
+} else if (process.env.OPENAI_API_KEY) {
+  aiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  console.log('Using OpenAI API for chatbot');
 } else {
-  console.warn('OpenAI API key missing – using fallback responses.');
+  console.warn('No AI API key – using fallback responses.');
 }
 
 // ---------- Helper Functions ----------
@@ -166,8 +175,8 @@ const sendMessage = async (req, res) => {
 
     let reply = null;
 
-    // Try OpenAI if available
-    if (openai) {
+    // Try AI client if available
+    if (aiClient) {
       try {
         const systemPrompt = `You are a friendly and helpful hospital assistant for a patient in a hospital management system.
 Your goal is to provide warm, empathetic, and accurate answers based on the patient's data and general medical knowledge.
@@ -186,26 +195,28 @@ Important guidelines:
 - Keep responses under 3 sentences unless more detail is needed.`;
 
         const recentMessages = chat.messages.slice(-10);
-        const openaiMessages = [
+        const aiMessages = [
           { role: 'system', content: systemPrompt },
           ...recentMessages.map(m => ({ role: m.role, content: m.content }))
         ];
 
-        const completion = await openai.chat.completions.create({
-          model: 'gpt-3.5-turbo',
-          messages: openaiMessages,
+        // Choose model based on provider
+        const model = AI_PROVIDER === 'groq' ? 'llama-3.3-70b-versatile' : 'gpt-3.5-turbo';
+
+        const completion = await aiClient.chat.completions.create({
+          model,
+          messages: aiMessages,
           max_tokens: 500,
           temperature: 0.7,
         });
 
         reply = completion.choices[0].message.content.trim();
-      } catch (openaiError) {
-        console.error('[Chat] OpenAI error:', openaiError.message);
-        console.error(openaiError);
+      } catch (aiError) {
+        console.error('[Chat] AI error:', aiError.message);
+        console.error(aiError);
         reply = getFallbackResponse(message, patientData);
       }
     } else {
-      // OpenAI not configured – use fallback
       reply = getFallbackResponse(message, patientData);
     }
 
