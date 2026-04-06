@@ -99,20 +99,30 @@ export default function DashboardPatient() {
         .fade-in:nth-child(3) { animation-delay: 0.19s; }
         .fade-in:nth-child(4) { animation-delay: 0.26s; }
         @keyframes fadeUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+        /* Eye-catching tip card */
+        .tip-card {
+          background: linear-gradient(135deg, #fef9c3 0%, #fde047 100%);
+          border: 1px solid #facc15;
+          box-shadow: 0 8px 20px rgba(250, 204, 21, 0.25);
+        }
+        .tip-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 12px 28px rgba(250, 204, 21, 0.35);
+        }
       `}</style>
 
-      <div className="dash-root max-w-5xl mx-auto space-y-5 pb-8">
+      <div className="dash-root max-w-6xl mx-auto space-y-6 pb-10">
 
-        {/* Hero Banner – compact padding */}
-        <div className="hero-card rounded-2xl p-6 md:p-8 text-white relative">
+        {/* Hero Banner – standard padding */}
+        <div className="hero-card rounded-2xl p-8 md:p-10 text-white relative">
           <div className="relative z-10">
-            <p className="text-blue-200 text-xs font-medium tracking-widest uppercase mb-0.5">{getGreeting()}</p>
-            <h1 className="display-font text-2xl md:text-3xl font-semibold mb-0.5">{firstName} <span className="italic font-light text-blue-200">👋</span></h1>
-            <p className="text-blue-100 text-sm max-w-md">Your health summary – appointments, scans & insights.</p>
+            <p className="text-blue-200 text-sm font-medium tracking-widest uppercase mb-1">{getGreeting()}</p>
+            <h1 className="display-font text-3xl md:text-4xl font-semibold mb-1">{firstName} <span className="italic font-light text-blue-200">👋</span></h1>
+            <p className="text-blue-100 text-base max-w-md">Your health summary – appointments, scans & insights.</p>
 
             {nextAppointment ? (
-              <div className="mt-4 inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-3 py-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot" />
+              <div className="mt-6 inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-3">
+                <div className="w-2 h-2 rounded-full bg-emerald-400 pulse-dot" />
                 <div>
                   <p className="text-xs text-blue-200">Next Appointment</p>
                   <p className="text-sm font-semibold text-white">
@@ -121,109 +131,111 @@ export default function DashboardPatient() {
                 </div>
               </div>
             ) : (
-              <div className="mt-4 inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-3 py-2">
-                <FaBell className="text-blue-300 text-xs" />
+              <div className="mt-6 inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-4 py-3">
+                <FaBell className="text-blue-300 text-sm" />
                 <p className="text-sm text-blue-100">No upcoming appointments</p>
               </div>
             )}
           </div>
           <div className="absolute right-8 top-1/2 -translate-y-1/2 hidden md:flex items-center justify-center opacity-10">
-            <div className="w-32 h-32 rounded-full border-4 border-white" />
-            <div className="absolute w-20 h-20 rounded-full border-2 border-white" />
+            <div className="w-40 h-40 rounded-full border-4 border-white" />
+            <div className="absolute w-24 h-24 rounded-full border-2 border-white" />
           </div>
         </div>
 
-        {/* Stats Row – tighter gap */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Stats Row – standard grid gap */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {stats.map((stat) => (
-            <div key={stat.label} className="stat-card bg-white rounded-xl p-3 border border-gray-100 shadow-sm fade-in">
-              <div className={`${stat.bg} w-8 h-8 rounded-lg flex items-center justify-center mb-2`}>
-                <stat.icon className={`${stat.color} text-sm`} />
+            <div key={stat.label} className="stat-card bg-white rounded-2xl p-5 border border-gray-100 shadow-sm fade-in">
+              <div className={`${stat.bg} w-10 h-10 rounded-xl flex items-center justify-center mb-3`}>
+                <stat.icon className={`${stat.color} text-lg`} />
               </div>
-              {loading ? <div className="h-6 w-8 bg-gray-100 rounded animate-pulse mb-0.5" /> : <p className="text-xl font-bold text-gray-800">{stat.value}</p>}
-              <p className="text-[11px] text-gray-500">{stat.label}</p>
+              {loading ? <div className="h-7 w-10 bg-gray-100 rounded animate-pulse mb-1" /> : <p className="text-2xl font-bold text-gray-800">{stat.value}</p>}
+              <p className="text-xs text-gray-500 mt-0.5">{stat.label}</p>
             </div>
           ))}
         </div>
 
-        {/* Personalized Health Tip Card – compact */}
+        {/* Personalized Health Tip Card – vibrant and eye-catching */}
         {!tipLoading && tip && (
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-3 border border-blue-100 shadow-sm fade-in">
-            <div className="flex items-start gap-2">
-              <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <FaLightbulb className="text-blue-600 text-sm" />
+          <div className="tip-card rounded-xl p-4 transition-all duration-200 fade-in">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/80 flex items-center justify-center flex-shrink-0 shadow-sm">
+                <FaLightbulb className="text-amber-600 text-xl" />
               </div>
               <div>
-                <p className="text-[10px] font-semibold text-blue-600 uppercase tracking-wide">✨ Personalized Health Tip</p>
-                <p className="text-xs text-gray-700 leading-relaxed">{tip}</p>
+                <p className="text-xs font-bold text-amber-800 uppercase tracking-wide flex items-center gap-1">
+                  <span className="text-base">✨</span> Personalized Health Tip
+                </p>
+                <p className="text-sm text-gray-800 mt-1 leading-relaxed font-medium">{tip}</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Quick Actions – tighter cards */}
+        {/* Quick Actions – standard card size */}
         <div>
-          <h2 className="display-font text-lg font-semibold text-gray-800 mb-2">Quick Actions</h2>
-          <div className="grid sm:grid-cols-3 gap-3">
+          <h2 className="display-font text-xl font-semibold text-gray-800 mb-3">Quick Actions</h2>
+          <div className="grid sm:grid-cols-3 gap-4">
             {quickActions.map((action) => (
-              <div key={action.label} onClick={() => navigate(action.to)} className={`action-card bg-gradient-to-br ${action.color} ${action.shadow} shadow-md rounded-xl p-4 text-white`}>
-                <action.icon className="text-white/80 text-xl mb-2" />
-                <p className="font-semibold text-sm mb-0.5">{action.label}</p>
-                <p className="text-white/70 text-[11px]">{action.desc}</p>
-                <div className="mt-2 flex items-center text-white/60 text-[10px] gap-1">Go <FaArrowRight className="text-[8px]" /></div>
+              <div key={action.label} onClick={() => navigate(action.to)} className={`action-card bg-gradient-to-br ${action.color} ${action.shadow} shadow-lg rounded-2xl p-6 text-white`}>
+                <action.icon className="text-white/80 text-2xl mb-3" />
+                <p className="font-semibold text-base mb-0.5">{action.label}</p>
+                <p className="text-white/70 text-xs">{action.desc}</p>
+                <div className="mt-3 flex items-center text-white/60 text-xs gap-1">Go <FaArrowRight className="text-[10px]" /></div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Upcoming Appointments – tighter spacing */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-50">
-            <h2 className="display-font text-base font-semibold text-gray-800">Upcoming Appointments</h2>
-            <button onClick={() => navigate('/dashboard/patient/appointments')} className="text-blue-500 text-xs font-medium flex items-center gap-0.5 hover:underline">View all <FaArrowRight className="text-[9px]" /></button>
+        {/* Upcoming Appointments – standard card */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-50">
+            <h2 className="display-font text-lg font-semibold text-gray-800">Upcoming Appointments</h2>
+            <button onClick={() => navigate('/dashboard/patient/appointments')} className="text-blue-500 text-sm font-medium flex items-center gap-1 hover:underline">View all <FaArrowRight className="text-xs" /></button>
           </div>
           {loading ? (
-            <div className="p-4 space-y-2">{[1,2].map(i=><div key={i} className="h-10 bg-gray-50 rounded-lg animate-pulse" />)}</div>
+            <div className="p-6 space-y-3">{[1,2].map(i=><div key={i} className="h-12 bg-gray-50 rounded-xl animate-pulse" />)}</div>
           ) : upcomingAppointments.length === 0 ? (
-            <div className="p-6 text-center">
-              <FaCalendarAlt className="text-gray-200 text-3xl mx-auto mb-2" />
-              <p className="text-gray-400 text-xs">No upcoming appointments.</p>
-              <button onClick={() => navigate('/dashboard/patient/appointments')} className="mt-2 text-blue-500 text-xs font-medium hover:underline">Book one now →</button>
+            <div className="p-8 text-center">
+              <FaCalendarAlt className="text-gray-200 text-4xl mx-auto mb-3" />
+              <p className="text-gray-400 text-sm">No upcoming appointments.</p>
+              <button onClick={() => navigate('/dashboard/patient/appointments')} className="mt-3 text-blue-500 text-sm font-medium hover:underline">Book one now →</button>
             </div>
           ) : (
             <div className="divide-y divide-gray-50">
               {upcomingAppointments.map((app) => (
-                <div key={app._id} className="appt-row flex items-center justify-between px-4 py-2.5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                <div key={app._id} className="appt-row flex items-center justify-between px-6 py-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
                       <span className="text-blue-600 font-bold text-sm">{app.doctor?.name?.[0]?.toUpperCase() || 'D'}</span>
                     </div>
                     <div>
                       <p className="font-medium text-gray-800 text-sm">Dr. {app.doctor?.name}</p>
-                      <p className="text-[11px] text-gray-400">{new Date(app.date).toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' })}</p>
+                      <p className="text-xs text-gray-400">{new Date(app.date).toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' })}</p>
                     </div>
                   </div>
-                  <span className="bg-emerald-50 text-emerald-600 text-[11px] font-medium px-2 py-0.5 rounded-full flex items-center gap-0.5"><FaCheckCircle className="text-[9px]" /> {new Date(app.date).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })}</span>
+                  <span className="bg-emerald-50 text-emerald-600 text-xs font-medium px-3 py-1 rounded-full flex items-center gap-1"><FaCheckCircle className="text-[10px]" /> {new Date(app.date).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })}</span>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Recent Skin Scans – tighter */}
+        {/* Recent Skin Scans – standard card */}
         {!loading && pastScans.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-50">
-              <h2 className="display-font text-base font-semibold text-gray-800">Recent Skin Scans</h2>
-              <button onClick={() => navigate('/dashboard/patient/ai-scanner')} className="text-violet-500 text-xs font-medium flex items-center gap-0.5 hover:underline">View all <FaArrowRight className="text-[9px]" /></button>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-50">
+              <h2 className="display-font text-lg font-semibold text-gray-800">Recent Skin Scans</h2>
+              <button onClick={() => navigate('/dashboard/patient/ai-scanner')} className="text-violet-500 text-sm font-medium flex items-center gap-1 hover:underline">View all <FaArrowRight className="text-xs" /></button>
             </div>
-            <div className="p-3 flex gap-3 overflow-x-auto">
+            <div className="p-5 flex gap-4 overflow-x-auto">
               {pastScans.slice(0, 5).map((scan) => (
-                <div key={scan._id} className="flex-shrink-0 w-24 group">
-                  <div className="w-24 h-24 rounded-lg overflow-hidden border border-gray-100 shadow-sm group-hover:shadow-md transition-shadow">
+                <div key={scan._id} className="flex-shrink-0 w-28 group">
+                  <div className="w-28 h-28 rounded-xl overflow-hidden border border-gray-100 shadow-sm group-hover:shadow-md transition-shadow">
                     <img src={scan.imageUrl} alt="Scan" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-1 text-center">{new Date(scan.createdAt).toLocaleDateString([], { month:'short', day:'numeric' })}</p>
+                  <p className="text-xs text-gray-400 mt-1.5 text-center">{new Date(scan.createdAt).toLocaleDateString([], { month:'short', day:'numeric' })}</p>
                 </div>
               ))}
             </div>
