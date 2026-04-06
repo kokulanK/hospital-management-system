@@ -226,6 +226,23 @@ const deleteLabRequest = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+// @desc    Get completed lab requests for logged-in patient
+// @route   GET /api/lab-requests/patient
+// @access  Private (patient)
+const getPatientLabRequests = async (req, res) => {
+  try {
+    const requests = await LabRequest.find({
+      patient: req.user._id,
+      status: 'completed'
+    })
+      .populate('doctor', 'name email')
+      .sort('-completedAt');
+    res.json(requests);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 
 // ================= EXPORTS =================
 
@@ -237,5 +254,6 @@ module.exports = {
   completeLabRequest,
   getLabRequestById,
   updateLabRequest,
-  deleteLabRequest
+  deleteLabRequest,
+  getPatientLabRequests
 };

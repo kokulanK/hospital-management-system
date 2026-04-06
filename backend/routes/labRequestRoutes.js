@@ -33,4 +33,8 @@ router.delete('/:id', protect, authorize('doctor', 'labTechnician'), deleteLabRe
 // Shared – get by ID
 router.get('/:id', protect, authorize('doctor', 'labTechnician'), getLabRequestById);
 
+
+// Patient routes
+router.get('/patient', protect, authorize('patient'), getPatientLabRequests);
+
 module.exports = router;

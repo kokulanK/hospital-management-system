@@ -5,6 +5,10 @@ import {
   FaHome, FaUser, FaCalendarAlt, FaComment, FaMicroscope, FaCog, FaSignOutAlt 
 } from 'react-icons/fa';
 import Chatbot from './Chatbot';   // ← added Chatbot import
+import { 
+  FaHome, FaUser, FaCalendarAlt, FaComment, FaMicroscope, FaCog, FaSignOutAlt, FaFileAlt 
+} from 'react-icons/fa';
+
 
 export default function DashboardLayout({ children, activePage }) {
   const { user, logout } = useAuth();
@@ -17,6 +21,7 @@ export default function DashboardLayout({ children, activePage }) {
       { to: '/dashboard/patient/appointments', icon: FaCalendarAlt,label: 'Appointments', key: 'appointments' },
       { to: '/dashboard/patient/feedback',     icon: FaComment,    label: 'Feedback',     key: 'feedback' },
       { to: '/dashboard/patient/ai-scanner',   icon: FaMicroscope, label: 'AI Scanner',   key: 'aiscanner' },
+      { to: '/dashboard/patient/lab-reports',  icon: FaFileAlt,    label: 'Lab Reports',  key: 'labreports' },
       { to: '/dashboard/patient/profile',      icon: FaUser,       label: 'Profile',      key: 'profile' },
       { to: '/dashboard/patient/settings',     icon: FaCog,        label: 'Settings',     key: 'settings' },
     ],

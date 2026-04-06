@@ -30,6 +30,7 @@ import Appointments from "./pages/patient/Appointments";
 import Feedback from "./pages/patient/Feedback";
 import AIScanner from "./pages/patient/AIScanner";
 import Settings from "./pages/patient/Settings";
+import LabReports from './pages/patient/LabReports';
 
 // Public Home page
 import Home from "./pages/Home";
@@ -97,6 +98,7 @@ export default function AppRoutes() {
       <Route path="/dashboard/patient/ai-scanner" element={<PrivateRoute allowedRoles={['patient']}><AIScanner /></PrivateRoute>} />
       <Route path="/dashboard/patient/settings" element={<PrivateRoute allowedRoles={['patient']}><Settings /></PrivateRoute>} />
       <Route path="/dashboard/patient/book" element={<Navigate to="/dashboard/patient/appointments" replace />} />
+      <Route path="/dashboard/patient/lab-reports" element={<PrivateRoute allowedRoles={['patient']}><LabReports /></PrivateRoute>} />
 
       {/* Doctor routes */}
       <Route path="/dashboard/doctor" element={<PrivateRoute allowedRoles={["doctor"]}><DashboardDoctor /></PrivateRoute>} />
