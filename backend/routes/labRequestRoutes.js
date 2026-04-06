@@ -11,7 +11,8 @@ const {
   completeLabRequest,
   getLabRequestById,
   updateLabRequest,
-  deleteLabRequest
+  deleteLabRequest,
+  getPatientLabRequests          // ✅ added this import
 } = require('../controllers/labRequestController');
 
 const router = express.Router();
@@ -26,13 +27,11 @@ router.put('/:id/accept', protect, authorize('labTechnician'), acceptLabRequest)
 router.put('/:id/complete', protect, authorize('labTechnician'), uploadLab.single('resultFile'), completeLabRequest);
 
 // Shared (doctor or lab technician) – UPDATE and DELETE
-// ✅ Added uploadLab.single('resultFile') to handle file updates
 router.put('/:id', protect, authorize('doctor', 'labTechnician'), uploadLab.single('resultFile'), updateLabRequest);
 router.delete('/:id', protect, authorize('doctor', 'labTechnician'), deleteLabRequest);
 
 // Shared – get by ID
 router.get('/:id', protect, authorize('doctor', 'labTechnician'), getLabRequestById);
-
 
 // Patient routes
 router.get('/patient', protect, authorize('patient'), getPatientLabRequests);
