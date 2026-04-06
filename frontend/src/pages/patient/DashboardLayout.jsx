@@ -1,14 +1,10 @@
-// frontend/src/components/DashboardLayout.jsx
+// frontend/src/pages/patient/DashboardLayout.jsx
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
-  FaHome, FaUser, FaCalendarAlt, FaComment, FaMicroscope, FaCog, FaSignOutAlt 
-} from 'react-icons/fa';
-import Chatbot from './Chatbot';   // ← added Chatbot import
-import { 
   FaHome, FaUser, FaCalendarAlt, FaComment, FaMicroscope, FaCog, FaSignOutAlt, FaFileAlt 
 } from 'react-icons/fa';
-
+import Chatbot from './Chatbot';
 
 export default function DashboardLayout({ children, activePage }) {
   const { user, logout } = useAuth();
