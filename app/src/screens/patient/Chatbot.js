@@ -1,28 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  Modal,
-  TextInput,
-  FlatList,
-  ActivityIndicator,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
+  View, Text, TouchableOpacity, Modal, TextInput, FlatList,
+  StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../../api/axios';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 export default function Chatbot() {
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [speakingId, setSpeakingId] = useState(null);
-  const flatListRef = useRef();
+  const [showGuide, setShowGuide] = useState(false);
+  const flatListRef = useRef(null);
 
+  // Fetch chat history when opened
   useEffect(() => {
     if (isOpen) fetchHistory();
   }, [isOpen]);
@@ -36,34 +32,45 @@ export default function Chatbot() {
   const fetchHistory = async () => {
     try {
       const { data } = await api.get('/chat/history');
-      setMessages(data);
-    } catch (error) {
-      console.error('Failed to load chat history', error);
+      const withDates = data.map(msg => ({
+        ...msg,
+        timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date()
+      }));
+      setMessages(withDates);
+    } catch (err) {
+      console.error('Failed to load chat history', err);
     }
   };
 
-  const sendMessage = async () => {
-    if (!input.trim()) return;
-    const userMessage = input.trim();
+  const sendMessageContent = async (content) => {
+    if (!content.trim()) return;
     setInput('');
-    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
+    setMessages(prev => [...prev, { role: 'user', content, timestamp: new Date() }]);
     setLoading(true);
     try {
-      const { data } = await api.post('/chat', { message: userMessage });
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: data.reply, id: Date.now() },
-      ]);
+      const { data } = await api.post('/chat', { message: content });
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.reply,
+        id: Date.now(),
+        timestamp: new Date()
+      }]);
     } catch (err) {
       console.error('Send message error', err);
-      const errorMsg = 'Sorry, I could not process your request. Please try again later.';
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: errorMsg, id: Date.now() },
-      ]);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: t.chatbot?.errorGeneric || 'Sorry, something went wrong. Please try again.',
+        id: Date.now(),
+        timestamp: new Date()
+      }]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const sendMessage = () => {
+    if (!input.trim() || loading) return;
+    sendMessageContent(input.trim());
   };
 
   const clearChat = async () => {
@@ -73,7 +80,7 @@ export default function Chatbot() {
       if (Speech.isSpeakingAsync()) Speech.stop();
     } catch (err) {
       console.error('Failed to clear chat', err);
-      alert('Could not clear chat history.');
+      alert(t.chatbot?.clearFailed || 'Failed to clear chat.');
     }
   };
 
@@ -114,13 +121,23 @@ export default function Chatbot() {
             </TouchableOpacity>
           )}
         </View>
+        {item.timestamp && (
+          <Text style={[styles.timestamp, isUser ? styles.userTimestamp : styles.assistantTimestamp]}>
+            {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+        )}
       </View>
     );
   };
 
+  // Stats
+  const messageCount = messages.length;
+  const userMessages = messages.filter(m => m.role === 'user').length;
+  const assistantMessages = messages.filter(m => m.role === 'assistant').length;
+
   return (
     <>
-      {/* Floating button */}
+      {/* Floating Button */}
       <TouchableOpacity style={styles.floatingButton} onPress={() => setIsOpen(true)}>
         <Ionicons name="chatbubbles" size={24} color="white" />
       </TouchableOpacity>
@@ -134,10 +151,12 @@ export default function Chatbot() {
             <View style={styles.chatWindow}>
               {/* Header */}
               <View style={styles.header}>
-                <View>
-                  <Text style={styles.headerTitle}>Hospital Assistant</Text>
+                <View style={styles.headerText}>
+                  <Text style={styles.headerTitle}>
+                    {t.chatbot?.hospitalAssistant || 'Health Assistant'}
+                  </Text>
                   <Text style={styles.headerSubtitle}>
-                    Ask me about appointments, feedback, or skin scans.
+                    {t.chatbot?.assistantSubtitle || 'AI-powered medical assistant'}
                   </Text>
                 </View>
                 <TouchableOpacity onPress={clearChat} style={styles.clearButton}>
@@ -148,38 +167,68 @@ export default function Chatbot() {
                 </TouchableOpacity>
               </View>
 
+              {/* Stats & Guide */}
+              <View style={styles.statsContainer}>
+                <View style={styles.statBadge}>
+                  <Ionicons name="time-outline" size={12} color="#6b7280" />
+                  <Text style={styles.statText}>{messageCount} {messageCount === 1 ? 'message' : 'messages'}</Text>
+                </View>
+                <View style={styles.statBadge}>
+                  <Ionicons name="chatbubbles-outline" size={12} color="#6b7280" />
+                  <Text style={styles.statText}>{userMessages} you · {assistantMessages} AI</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity style={styles.guideButton} onPress={() => setShowGuide(!showGuide)}>
+                <Ionicons name="information-circle-outline" size={14} color="#8b5cf6" />
+                <Text style={styles.guideButtonText}>
+                  {showGuide ? 'Hide guide' : 'Show guide'}
+                </Text>
+                <Ionicons name={showGuide ? 'chevron-up' : 'chevron-down'} size={12} color="#8b5cf6" />
+              </TouchableOpacity>
+              {showGuide && (
+                <View style={styles.guideContent}>
+                  <Text>💬 Ask me about appointments, symptoms, or hospital services.</Text>
+                  <Text>🔊 Click the speaker icon on my replies to hear them aloud.</Text>
+                  <Text>🗑️ Use the trash icon to clear the conversation.</Text>
+                </View>
+              )}
+
               {/* Messages */}
               <FlatList
                 ref={flatListRef}
                 data={messages}
-                keyExtractor={(_, index) => index.toString()}
+                keyExtractor={(_, idx) => idx.toString()}
                 renderItem={renderMessage}
                 contentContainerStyle={styles.messagesContainer}
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyText}>No messages yet. Start a conversation!</Text>
+                    <Ionicons name="chatbubbles-outline" size={48} color="#e5e7eb" />
+                    <Text style={styles.emptyText}>
+                      {t.chatbot?.emptyChat || 'No messages yet. Start a conversation!'}
+                    </Text>
                   </View>
                 }
               />
               {loading && (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color="#3b82f6" />
-                  <Text style={styles.loadingText}>Typing...</Text>
+                  <Text style={styles.loadingText}>{t.chatbot?.typing || 'Typing...'}</Text>
                 </View>
               )}
 
-              {/* Input */}
+              {/* Input Area */}
               <View style={styles.inputContainer}>
                 <TextInput
                   style={styles.input}
-                  placeholder="Type your message..."
+                  placeholder={t.chatbot?.placeholder || 'Type your message...'}
                   value={input}
                   onChangeText={setInput}
                   multiline
                 />
                 <TouchableOpacity
-                  style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled]}
+                  style={[styles.sendButton, (!input.trim() || loading) && styles.sendButtonDisabled]}
                   onPress={sendMessage}
                   disabled={loading || !input.trim()}
                 >
@@ -197,7 +246,7 @@ export default function Chatbot() {
 const styles = StyleSheet.create({
   floatingButton: {
     position: 'absolute',
-    bottom: 70, // adjusted to sit above the tab bar
+    bottom: 70,
     right: 20,
     backgroundColor: '#3b82f6',
     width: 56,
@@ -235,36 +284,59 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerTitle: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
+  headerText: { flex: 1 },
+  headerTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  headerSubtitle: { color: '#bfdbfe', fontSize: 12, marginTop: 2 },
+  clearButton: { marginHorizontal: 12 },
+  closeButton: { padding: 4 },
+  statsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f8fafc',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
   },
-  headerSubtitle: {
-    color: '#bfdbfe',
-    fontSize: 12,
-    marginTop: 2,
+  statBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 16,
   },
-  clearButton: {
-    marginLeft: 'auto',
-    marginRight: 12,
+  statText: { fontSize: 10, color: '#6b7280' },
+  guideButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f8fafc',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
   },
-  closeButton: {
-    padding: 4,
+  guideButtonText: { fontSize: 12, color: '#8b5cf6' },
+  guideContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#f8fafc',
+    gap: 6,
   },
   messagesContainer: {
     padding: 16,
     flexGrow: 1,
   },
   messageRow: {
-    flexDirection: 'row',
     marginBottom: 12,
   },
   userRow: {
-    justifyContent: 'flex-end',
+    alignItems: 'flex-end',
   },
   assistantRow: {
-    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
   },
   messageBubble: {
     maxWidth: '80%',
@@ -292,6 +364,17 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     alignSelf: 'flex-end',
   },
+  timestamp: {
+    fontSize: 10,
+    marginTop: 4,
+    marginHorizontal: 8,
+  },
+  userTimestamp: {
+    color: '#9ca3af',
+  },
+  assistantTimestamp: {
+    color: '#9ca3af',
+  },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -300,15 +383,16 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#9ca3af',
     textAlign: 'center',
+    marginTop: 12,
   },
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 8,
+    gap: 8,
   },
   loadingText: {
-    marginLeft: 8,
     fontSize: 12,
     color: '#6b7280',
   },

@@ -16,7 +16,7 @@
     },
     "web": {},
     "extra": {
-      "apiUrl": "http://172.20.10.2:5000/api"
+      "apiUrl": "https://hospital-backend-myqc.onrender.com/api"
     }
   }
 }

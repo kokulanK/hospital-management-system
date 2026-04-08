@@ -1,145 +1,288 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { useAuth } from '../../contexts/AuthContext';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function Login({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const { login } = useAuth();
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password');
+      setError('Please enter email and password');
       return;
     }
+    setError('');
     setLoading(true);
     const result = await login(email, password);
     setLoading(false);
     if (!result.success) {
-      Alert.alert('Login Failed', result.error);
+      setError(result.error);
     }
-    // Navigation will be handled by AppNavigator based on user state
+    // Navigation handled by AppNavigator based on auth state
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+    <LinearGradient
+      colors={['#1f4068', '#2980b9']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradient}
     >
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.header}>
-          <Ionicons name="medical" size={64} color="#3b82f6" />
-          <Text style={styles.title}>Hospital Management</Text>
-          <Text style={styles.subtitle}>Sign in to your account</Text>
-        </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <ScrollView contentContainerStyle={styles.scroll}>
+          {/* Card */}
+          <View style={styles.card}>
+            <Ionicons name="log-in-outline" size={60} color="#fff" style={styles.icon} />
+            <Text style={styles.welcomeText}>Welcome Back</Text>
 
-        <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-          <TouchableOpacity style={styles.loginBtn} onPress={handleLogin} disabled={loading}>
-            <Text style={styles.loginBtnText}>{loading ? 'Logging in...' : 'Login'}</Text>
-          </TouchableOpacity>
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          <View style={styles.registerSection}>
-            <Text style={styles.registerText}>Don't have an account?</Text>
-            {/* Row 1: Patient alone */}
-            <View style={styles.registerRow}>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('RegisterPatient')}
-                style={styles.registerLink}
-              >
-                <Text style={styles.link}>Patient</Text>
-              </TouchableOpacity>
+            {/* Email Input */}
+            <View style={styles.inputGroup}>
+              <Ionicons name="mail-outline" size={18} color="rgba(255,255,255,0.8)" />
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
+                placeholderTextColor="rgba(255,255,255,0.6)"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
             </View>
-            {/* Row 2: Doctor & Receptionist */}
-            <View style={styles.registerRow}>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('RegisterDoctor')}
-                style={styles.registerLink}
-              >
-                <Text style={styles.link}>Doctor</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('RegisterReceptionist')}
-                style={styles.registerLink}
-              >
-                <Text style={styles.link}>Receptionist</Text>
-              </TouchableOpacity>
+
+            {/* Password Input */}
+            <View style={styles.inputGroup}>
+              <Ionicons name="lock-closed-outline" size={18} color="rgba(255,255,255,0.8)" />
+              <TextInput
+                style={styles.input}
+                placeholder="Password"
+                placeholderTextColor="rgba(255,255,255,0.6)"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
             </View>
-            {/* Row 3: Cleaning Staff & Lab Technician */}
-            <View style={styles.registerRow}>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('RegisterCleaningStaff')}
-                style={styles.registerLink}
+
+            {/* Login Button */}
+            <TouchableOpacity
+              style={styles.loginButton}
+              onPress={handleLogin}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={['#2980b9', '#6dd5fa']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradientButton}
               >
-                <Text style={styles.link}>Cleaning Staff</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('RegisterLabTechnician')}
-                style={styles.registerLink}
-              >
-                <Text style={styles.link}>Lab Technician</Text>
-              </TouchableOpacity>
+                <Text style={styles.loginButtonText}>
+                  {loading ? 'Logging in...' : 'Login'}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Divider */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>REGISTER</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Registration Links */}
+            <View style={styles.registerSection}>
+              {/* Row 1: Patient alone */}
+              <View style={styles.registerRow}>
+                <TouchableOpacity
+                  style={styles.registerLink}
+                  onPress={() => navigation.navigate('RegisterPatient')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.registerLinkText}>Patient</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Row 2: Doctor & Receptionist */}
+              <View style={styles.registerRow}>
+                <TouchableOpacity
+                  style={[styles.registerLink, styles.registerLinkHalf]}
+                  onPress={() => navigation.navigate('RegisterDoctor')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.registerLinkText}>Doctor</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.registerLink, styles.registerLinkHalf]}
+                  onPress={() => navigation.navigate('RegisterReceptionist')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.registerLinkText}>Receptionist</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Row 3: Cleaning Staff & Lab Technician */}
+              <View style={styles.registerRow}>
+                <TouchableOpacity
+                  style={[styles.registerLink, styles.registerLinkHalf]}
+                  onPress={() => navigation.navigate('RegisterCleaningStaff')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.registerLinkText}>Cleaning Staff</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.registerLink, styles.registerLinkHalf]}
+                  onPress={() => navigation.navigate('RegisterLabTechnician')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.registerLinkText}>Lab Technician</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  scroll: { flexGrow: 1, justifyContent: 'center', padding: 20 },
-  header: { alignItems: 'center', marginBottom: 40 },
-  title: { fontSize: 28, fontWeight: 'bold', marginTop: 12, color: '#1f2937' },
-  subtitle: { fontSize: 16, color: '#6b7280', marginTop: 4 },
-  form: { width: '100%' },
-  input: {
+  gradient: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+  },
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 40,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingVertical: 40,
+    paddingHorizontal: 30,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    fontSize: 16,
-    backgroundColor: 'white',
+    borderColor: 'rgba(255,255,255,0.18)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.37,
+    shadowRadius: 32,
+    elevation: 8,
   },
-  loginBtn: {
-    backgroundColor: '#3b82f6',
-    paddingVertical: 14,
-    borderRadius: 8,
+  icon: {
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  welcomeText: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  errorText: {
+    color: '#ff6b6b',
+    textAlign: 'center',
+    marginBottom: 10,
+    fontWeight: '500',
+    fontSize: 14,
+  },
+  inputGroup: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    marginBottom: 10,
   },
-  loginBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-  registerSection: { marginTop: 24, alignItems: 'center' },
-  registerText: { fontSize: 14, color: '#6b7280', marginBottom: 12 },
+  input: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#fff',
+    padding: 0,
+  },
+  loginButton: {
+    marginTop: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  gradientButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  loginButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginVertical: 22,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  dividerText: {
+    fontSize: 12,
+    letterSpacing: 2,
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: '500',
+  },
+  registerSection: {
+    marginTop: 16,
+  },
   registerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   registerLink: {
-    backgroundColor: 'rgba(59,130,246,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 10,
+    paddingVertical: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+    alignItems: 'center',
+  },
+  registerLinkHalf: {
+    flex: 1,
     marginHorizontal: 6,
   },
-  link: { color: '#3b82f6', fontWeight: '500', fontSize: 14 },
+  registerLinkText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
 });

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from './DashboardLayout';
 import api from '../../api/axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import {
   FaCalendarAlt, FaMicroscope, FaComment, FaArrowRight,
@@ -10,6 +11,7 @@ import {
 
 export default function DashboardPatient() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [appointments, setAppointments] = useState([]);
@@ -21,9 +23,9 @@ export default function DashboardPatient() {
   const firstName = user?.name?.split(' ')[0] || 'Patient';
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return t.dashboard?.goodMorning || 'Good morning';
+    if (hour < 18) return t.dashboard?.goodAfternoon || 'Good afternoon';
+    return t.dashboard?.goodEvening || 'Good evening';
   };
 
   useEffect(() => {
@@ -61,19 +63,22 @@ export default function DashboardPatient() {
     .sort((a, b) => new Date(a.date) - new Date(b.date))
     .slice(0, 3);
 
+  const pastAppointments = appointments.filter(a => new Date(a.date) < new Date() || a.status === 'completed');
+  const completedCount = pastAppointments.length;
+
   const nextAppointment = upcomingAppointments[0];
 
   const quickActions = [
-    { label: 'Book Appointment', desc: 'Schedule with a specialist', icon: FaCalendarAlt, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200', to: '/dashboard/patient/appointments' },
-    { label: 'AI Skin Scanner', desc: 'Analyze your skin condition', icon: FaMicroscope, color: 'from-violet-500 to-violet-600', shadow: 'shadow-violet-200', to: '/dashboard/patient/ai-scanner' },
-    { label: 'Leave Feedback', desc: 'Rate your experience', icon: FaComment, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', to: '/dashboard/patient/feedback' },
+    { label: t.dashboard?.bookAppointment || 'Book Appointment', desc: t.dashboard?.bookDesc || 'Schedule a visit with a doctor', icon: FaCalendarAlt, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200', to: '/dashboard/patient/appointments' },
+    { label: t.dashboard?.aiScanner || 'AI Scanner', desc: t.dashboard?.scannerDesc || 'Analyze skin conditions', icon: FaMicroscope, color: 'from-violet-500 to-violet-600', shadow: 'shadow-violet-200', to: '/dashboard/patient/ai-scanner' },
+    { label: t.dashboard?.feedback || 'Feedback', desc: t.dashboard?.feedbackDesc || 'Share your experience', icon: FaComment, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', to: '/dashboard/patient/feedback' },
   ];
 
   const stats = [
-    { label: 'Total Appointments', value: appointments.length, icon: FaCalendarAlt, color: 'text-blue-500', bg: 'bg-blue-50' },
-    { label: 'Upcoming', value: upcomingAppointments.length, icon: FaClock, color: 'text-amber-500', bg: 'bg-amber-50' },
-    { label: 'Skin Scans', value: pastScans.length, icon: FaMicroscope, color: 'text-violet-500', bg: 'bg-violet-50' },
-    { label: 'Health Score', value: '92%', icon: FaHeartbeat, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+    { label: t.dashboard?.statTotalAppointments || 'Total Appointments', value: appointments.length, icon: FaCalendarAlt, color: 'text-blue-500', bg: 'bg-blue-50' },
+    { label: t.dashboard?.statUpcoming || 'Upcoming', value: upcomingAppointments.length, icon: FaClock, color: 'text-amber-500', bg: 'bg-amber-50' },
+    { label: t.dashboard?.statSkinScans || 'Skin Scans', value: pastScans.length, icon: FaMicroscope, color: 'text-violet-500', bg: 'bg-violet-50' },
+    { label: t.dashboard?.statCompleted || 'Completed', value: completedCount, icon: FaCheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' }, // replaced health score
   ];
 
   return (
@@ -99,7 +104,6 @@ export default function DashboardPatient() {
         .fade-in:nth-child(3) { animation-delay: 0.19s; }
         .fade-in:nth-child(4) { animation-delay: 0.26s; }
         @keyframes fadeUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
-        /* Eye-catching tip card */
         .tip-card {
           background: linear-gradient(135deg, #fef9c3 0%, #fde047 100%);
           border: 1px solid #facc15;
@@ -113,18 +117,18 @@ export default function DashboardPatient() {
 
       <div className="dash-root max-w-6xl mx-auto space-y-6 pb-10">
 
-        {/* Hero Banner – standard padding */}
+        {/* Hero Banner */}
         <div className="hero-card rounded-2xl p-8 md:p-10 text-white relative">
           <div className="relative z-10">
             <p className="text-blue-200 text-sm font-medium tracking-widest uppercase mb-1">{getGreeting()}</p>
             <h1 className="display-font text-3xl md:text-4xl font-semibold mb-1">{firstName} <span className="italic font-light text-blue-200">👋</span></h1>
-            <p className="text-blue-100 text-base max-w-md">Your health summary – appointments, scans & insights.</p>
+            <p className="text-blue-100 text-base max-w-md">{t.dashboard?.welcomeBack || 'Welcome back to your health hub'}</p>
 
             {nextAppointment ? (
               <div className="mt-6 inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-3">
                 <div className="w-2 h-2 rounded-full bg-emerald-400 pulse-dot" />
                 <div>
-                  <p className="text-xs text-blue-200">Next Appointment</p>
+                  <p className="text-xs text-blue-200">{t.dashboard?.nextAppointment || 'Next appointment'}</p>
                   <p className="text-sm font-semibold text-white">
                     Dr. {nextAppointment.doctor?.name} – {new Date(nextAppointment.date).toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' })} at {new Date(nextAppointment.date).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })}
                   </p>
@@ -133,7 +137,7 @@ export default function DashboardPatient() {
             ) : (
               <div className="mt-6 inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-4 py-3">
                 <FaBell className="text-blue-300 text-sm" />
-                <p className="text-sm text-blue-100">No upcoming appointments</p>
+                <p className="text-sm text-blue-100">{t.dashboard?.noUpcoming || 'No upcoming appointments'}</p>
               </div>
             )}
           </div>
@@ -143,7 +147,7 @@ export default function DashboardPatient() {
           </div>
         </div>
 
-        {/* Stats Row – standard grid gap */}
+        {/* Stats Row – 4 cards, no percentage */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {stats.map((stat) => (
             <div key={stat.label} className="stat-card bg-white rounded-2xl p-5 border border-gray-100 shadow-sm fade-in">
@@ -156,7 +160,7 @@ export default function DashboardPatient() {
           ))}
         </div>
 
-        {/* Personalized Health Tip Card – vibrant and eye-catching */}
+        {/* Health Tip Card */}
         {!tipLoading && tip && (
           <div className="tip-card rounded-xl p-4 transition-all duration-200 fade-in">
             <div className="flex items-start gap-3">
@@ -165,7 +169,7 @@ export default function DashboardPatient() {
               </div>
               <div>
                 <p className="text-xs font-bold text-amber-800 uppercase tracking-wide flex items-center gap-1">
-                  <span className="text-base">✨</span> Personalized Health Tip
+                  <span className="text-base">✨</span> {t.dashboard?.healthTip || 'Health Tip'}
                 </p>
                 <p className="text-sm text-gray-800 mt-1 leading-relaxed font-medium">{tip}</p>
               </div>
@@ -173,34 +177,34 @@ export default function DashboardPatient() {
           </div>
         )}
 
-        {/* Quick Actions – standard card size */}
+        {/* Quick Actions */}
         <div>
-          <h2 className="display-font text-xl font-semibold text-gray-800 mb-3">Quick Actions</h2>
+          <h2 className="display-font text-xl font-semibold text-gray-800 mb-3">{t.dashboard?.quickActions || 'Quick Actions'}</h2>
           <div className="grid sm:grid-cols-3 gap-4">
             {quickActions.map((action) => (
               <div key={action.label} onClick={() => navigate(action.to)} className={`action-card bg-gradient-to-br ${action.color} ${action.shadow} shadow-lg rounded-2xl p-6 text-white`}>
                 <action.icon className="text-white/80 text-2xl mb-3" />
                 <p className="font-semibold text-base mb-0.5">{action.label}</p>
                 <p className="text-white/70 text-xs">{action.desc}</p>
-                <div className="mt-3 flex items-center text-white/60 text-xs gap-1">Go <FaArrowRight className="text-[10px]" /></div>
+                <div className="mt-3 flex items-center text-white/60 text-xs gap-1">{t.dashboard?.go || 'Go'} <FaArrowRight className="text-[10px]" /></div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Upcoming Appointments – standard card */}
+        {/* Upcoming Appointments */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-50">
-            <h2 className="display-font text-lg font-semibold text-gray-800">Upcoming Appointments</h2>
-            <button onClick={() => navigate('/dashboard/patient/appointments')} className="text-blue-500 text-sm font-medium flex items-center gap-1 hover:underline">View all <FaArrowRight className="text-xs" /></button>
+            <h2 className="display-font text-lg font-semibold text-gray-800">{t.dashboard?.upcomingAppointments || 'Upcoming Appointments'}</h2>
+            <button onClick={() => navigate('/dashboard/patient/appointments')} className="text-blue-500 text-sm font-medium flex items-center gap-1 hover:underline">{t.dashboard?.viewAll || 'View all'} <FaArrowRight className="text-xs" /></button>
           </div>
           {loading ? (
             <div className="p-6 space-y-3">{[1,2].map(i=><div key={i} className="h-12 bg-gray-50 rounded-xl animate-pulse" />)}</div>
           ) : upcomingAppointments.length === 0 ? (
             <div className="p-8 text-center">
               <FaCalendarAlt className="text-gray-200 text-4xl mx-auto mb-3" />
-              <p className="text-gray-400 text-sm">No upcoming appointments.</p>
-              <button onClick={() => navigate('/dashboard/patient/appointments')} className="mt-3 text-blue-500 text-sm font-medium hover:underline">Book one now →</button>
+              <p className="text-gray-400 text-sm">{t.dashboard?.noUpcoming || 'No upcoming appointments'}</p>
+              <button onClick={() => navigate('/dashboard/patient/appointments')} className="mt-3 text-blue-500 text-sm font-medium hover:underline">{t.dashboard?.bookOneNow || 'Book one now'} →</button>
             </div>
           ) : (
             <div className="divide-y divide-gray-50">
@@ -222,12 +226,12 @@ export default function DashboardPatient() {
           )}
         </div>
 
-        {/* Recent Skin Scans – standard card */}
+        {/* Recent Skin Scans */}
         {!loading && pastScans.length > 0 && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-50">
-              <h2 className="display-font text-lg font-semibold text-gray-800">Recent Skin Scans</h2>
-              <button onClick={() => navigate('/dashboard/patient/ai-scanner')} className="text-violet-500 text-sm font-medium flex items-center gap-1 hover:underline">View all <FaArrowRight className="text-xs" /></button>
+              <h2 className="display-font text-lg font-semibold text-gray-800">{t.dashboard?.recentScans || 'Recent Skin Scans'}</h2>
+              <button onClick={() => navigate('/dashboard/patient/ai-scanner')} className="text-violet-500 text-sm font-medium flex items-center gap-1 hover:underline">{t.dashboard?.viewAll || 'View all'} <FaArrowRight className="text-xs" /></button>
             </div>
             <div className="p-5 flex gap-4 overflow-x-auto">
               {pastScans.slice(0, 5).map((scan) => (

@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from './DashboardLayout';
 import api from '../../api/axios';
+import { useLanguage } from '../../contexts/LanguageContext';
 import {
   FaStar, FaCalendarAlt, FaClock, FaSearch, FaCheckCircle,
-  FaTimesCircle, FaUserMd, FaArrowRight, FaEdit, FaTrash
+  FaTimesCircle, FaUserMd, FaArrowRight, FaEdit, FaTrash,
+  FaInfoCircle, FaChevronDown, FaChevronUp, FaHistory
 } from 'react-icons/fa';
 
 export default function Appointments() {
+  const { t } = useLanguage();
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -18,6 +21,8 @@ export default function Appointments() {
   const [bookingMode, setBookingMode] = useState(true);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [fetchError, setFetchError] = useState('');
+  const [showUserGuide, setShowUserGuide] = useState(false);
+  const [loadingAppointments, setLoadingAppointments] = useState(false);
 
   // Reschedule state
   const [rescheduling, setRescheduling] = useState(null);
@@ -42,12 +47,15 @@ export default function Appointments() {
 
   const fetchAppointments = async () => {
     try {
+      setLoadingAppointments(true);
       const { data } = await api.get('/appointments/patient');
       setAppointments(data);
       setFetchError('');
     } catch (err) {
       console.error('Error fetching appointments:', err);
-      setFetchError('Failed to load appointments. Please try again later.');
+      setFetchError(t.appointments?.loadError || 'Failed to load appointments.');
+    } finally {
+      setLoadingAppointments(false);
     }
   };
 
@@ -99,53 +107,48 @@ export default function Appointments() {
 
   const handleBook = async () => {
     if (!confirmation) return;
-
     try {
       await api.post('/appointments', {
         doctorId: confirmation.doctor._id,
         startTime: confirmation.slot.start
       });
-      setBookingMessage('success:Appointment booked successfully!');
+      setBookingMessage('success:' + (t.appointments?.bookingSuccess || 'Appointment booked successfully!'));
       setConfirmation(null);
-      fetchAppointments();
+      await fetchAppointments();
       fetchSlots(confirmation.doctor._id, selectedDate);
     } catch (err) {
-      setBookingMessage('error:' + (err.response?.data?.message || 'Booking failed'));
+      setBookingMessage('error:' + (err.response?.data?.message || t.appointments?.bookingFailed || 'Booking failed.'));
     }
   };
 
   // Upcoming: only scheduled appointments in the future
   const upcomingAppointments = appointments
-    .filter(a => 
-      new Date(a.date) >= new Date() && 
-      a.status === 'scheduled'
-    )
+    .filter(a => new Date(a.date) >= new Date() && a.status === 'scheduled')
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
   const pastAppointments = appointments
     .filter(a => new Date(a.date) < new Date())
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
+  const cancelledAppointments = appointments.filter(a => a.status === 'cancelled');
+
   const msgType = bookingMessage.startsWith('success:') ? 'success' : 'error';
   const msgText = bookingMessage.replace(/^(success:|error:)/, '');
 
-  // Cancel handler
   const handleCancel = async (id) => {
-    if (!window.confirm('Are you sure you want to cancel this appointment?')) return;
+    if (!window.confirm(t.appointments?.cancelConfirm || 'Are you sure you want to cancel this appointment?')) return;
     try {
       await api.put(`/appointments/${id}/cancel`);
-      setBookingMessage('success:Appointment cancelled');
+      setBookingMessage('success:' + (t.appointments?.appointmentCancelled || 'Appointment cancelled.'));
       await fetchAppointments();
-      // Refresh slots for the currently selected doctor and date
       if (selectedDoctor) {
         fetchSlots(selectedDoctor._id, selectedDate);
       }
     } catch (err) {
-      setBookingMessage('error:' + (err.response?.data?.message || 'Cancel failed'));
+      setBookingMessage('error:' + (err.response?.data?.message || t.appointments?.cancelFailed || 'Cancellation failed.'));
     }
   };
 
-  // Reschedule handlers
   const handleReschedule = (appointment) => {
     setRescheduling(appointment);
     const today = new Date().toISOString().split('T')[0];
@@ -159,17 +162,24 @@ export default function Appointments() {
       await api.put(`/appointments/${rescheduling._id}/reschedule`, {
         newStartTime: rescheduleNewSlot.start
       });
-      setBookingMessage('success:Appointment rescheduled');
+      setBookingMessage('success:' + (t.appointments?.appointmentRescheduled || 'Appointment rescheduled.'));
       setRescheduling(null);
       setRescheduleNewSlot(null);
       await fetchAppointments();
-      // Refresh slots for the currently selected doctor and date (old slot freed)
       if (selectedDoctor) {
         fetchSlots(selectedDoctor._id, selectedDate);
       }
     } catch (err) {
-      setBookingMessage('error:' + (err.response?.data?.message || 'Reschedule failed'));
+      setBookingMessage('error:' + (err.response?.data?.message || t.appointments?.rescheduleFailed || 'Rescheduling failed.'));
     }
+  };
+
+  // Statistics for summary card
+  const stats = {
+    upcoming: upcomingAppointments.length,
+    total: appointments.length,
+    completed: pastAppointments.length,
+    cancelled: cancelledAppointments.length
   };
 
   return (
@@ -178,6 +188,10 @@ export default function Appointments() {
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,600;1,300&family=DM+Sans:wght@400;500;600&display=swap');
         .appt-root { font-family: 'DM Sans', sans-serif; }
         .display-font { font-family: 'Fraunces', serif; }
+
+        .hero-appt {
+          background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #1d4ed8 100%);
+        }
 
         .tab-btn {
           position: relative;
@@ -245,10 +259,6 @@ export default function Appointments() {
         .search-bar:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
         .date-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
 
-        .hero-appt {
-          background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #1d4ed8 100%);
-        }
-
         .fade-in { animation: fadeUp 0.4s ease forwards; opacity: 0; }
         .fade-in:nth-child(1) { animation-delay: 0.05s; }
         .fade-in:nth-child(2) { animation-delay: 0.12s; }
@@ -259,40 +269,77 @@ export default function Appointments() {
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
       `}</style>
 
-      <div className="appt-root max-w-5xl mx-auto space-y-6 pb-10">
+      <div className="appt-root max-w-5xl mx-auto space-y-6 pb-10 px-4 sm:px-0">
 
-        {/* Hero */}
-        <div className="hero-appt rounded-2xl p-7 md:p-9 text-white relative overflow-hidden">
+        {/* Hero Section – clean, no duplicate stats */}
+        <div className="hero-appt rounded-2xl p-6 sm:p-9 text-white relative overflow-hidden">
           <div className="absolute inset-0 pointer-events-none">
             <div style={{position:'absolute',width:280,height:280,background:'radial-gradient(circle,rgba(96,165,250,0.15) 0%,transparent 70%)',top:-60,right:-40,borderRadius:'50%'}} />
             <div style={{position:'absolute',width:160,height:160,background:'radial-gradient(circle,rgba(167,139,250,0.12) 0%,transparent 70%)',bottom:-30,left:60,borderRadius:'50%'}} />
           </div>
           <div className="relative z-10">
-            <p className="text-blue-200 text-xs font-medium tracking-widest uppercase mb-1">Appointments</p>
-            <h1 className="display-font text-3xl font-semibold mb-2">Manage Your Schedule</h1>
-            <p className="text-blue-100 text-sm max-w-md leading-relaxed">
-              Search for a doctor, pick a date, and book your slot — or review your upcoming and past visits.
-            </p>
-            <div className="mt-5 flex gap-4 flex-wrap">
-              <div className="bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-sm">
-                <span className="text-blue-200 text-xs block">Upcoming</span>
-                <span className="font-semibold">{upcomingAppointments.length} appointment{upcomingAppointments.length !== 1 ? 's' : ''}</span>
+            <p className="text-blue-200 text-xs font-medium tracking-widest uppercase mb-1">{t.appointments?.heroBadge || 'EASY SCHEDULING'}</p>
+            <h1 className="display-font text-2xl sm:text-3xl font-semibold mb-2">{t.appointments?.title || 'Appointments'}</h1>
+            <p className="text-blue-100 text-sm max-w-md leading-relaxed">{t.appointments?.subtitle || 'Book, reschedule, or manage your doctor visits'}</p>
+          </div>
+        </div>
+
+        {/* Stats & User Guide Section */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Stats Card */}
+          <div className="md:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <FaHistory className="text-blue-500" />
+              <h3 className="display-font font-semibold text-gray-800">Appointment Summary</h3>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div>
+                <p className="text-xs text-gray-400">Upcoming</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.upcoming}</p>
               </div>
-              <div className="bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-sm">
-                <span className="text-blue-200 text-xs block">Total Visits</span>
-                <span className="font-semibold">{appointments.length} visits</span>
+              <div>
+                <p className="text-xs text-gray-400">Total Visits</p>
+                <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">Completed</p>
+                <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">Cancelled</p>
+                <p className="text-2xl font-bold text-red-500">{stats.cancelled}</p>
               </div>
             </div>
+          </div>
+
+          {/* User Guide Toggle Card */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 cursor-pointer" onClick={() => setShowUserGuide(!showUserGuide)}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FaInfoCircle className="text-violet-500" />
+                <h3 className="display-font font-semibold text-gray-800">User Guide</h3>
+              </div>
+              {showUserGuide ? <FaChevronUp /> : <FaChevronDown />}
+            </div>
+            {showUserGuide && (
+              <div className="mt-3 text-sm text-gray-600 space-y-2">
+                <p>📅 <strong>Step 1:</strong> Search for a doctor by name.</p>
+                <p>🕒 <strong>Step 2:</strong> Pick a date and select an available time slot.</p>
+                <p>✅ <strong>Step 3:</strong> Confirm your booking – you'll receive a confirmation.</p>
+                <p>✏️ <strong>Step 4:</strong> View upcoming appointments to reschedule or cancel.</p>
+                <p className="text-xs text-gray-400 mt-2">💡 Tip: You can reschedule up to 24 hours before the appointment.</p>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Tabs */}
         <div className="flex gap-3">
           <button className={`tab-btn ${bookingMode ? 'active' : 'inactive'}`} onClick={() => setBookingMode(true)}>
-            <FaCalendarAlt className="inline mr-2 text-sm" />Book Appointment
+            <FaCalendarAlt className="inline mr-2 text-sm" />{t.appointments?.bookTab || 'Book Appointment'}
           </button>
           <button className={`tab-btn ${!bookingMode ? 'active' : 'inactive'}`} onClick={() => setBookingMode(false)}>
-            <FaCheckCircle className="inline mr-2 text-sm" />My Appointments
+            <FaCheckCircle className="inline mr-2 text-sm" />{t.appointments?.myAppointmentsTab || 'My Appointments'}
           </button>
         </div>
 
@@ -316,13 +363,13 @@ export default function Appointments() {
           <>
             {/* Search & Date */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <h3 className="display-font text-lg font-semibold text-gray-800 mb-4">Find a Doctor</h3>
+              <h3 className="display-font text-lg font-semibold text-gray-800 mb-4">{t.appointments?.findDoctor || 'Find a Doctor'}</h3>
               <div className="flex gap-3 flex-wrap">
                 <div className="relative flex-1 min-w-[200px]">
                   <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
                   <input
                     type="text"
-                    placeholder="Search by doctor name..."
+                    placeholder={t.appointments?.searchPlaceholder || "Doctor's name..."}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="search-bar w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm transition-all"
@@ -345,7 +392,7 @@ export default function Appointments() {
             {filteredDoctors.length === 0 ? (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center">
                 <FaUserMd className="text-gray-200 text-5xl mx-auto mb-3" />
-                <p className="text-gray-400 text-sm">No doctors found matching your search.</p>
+                <p className="text-gray-400 text-sm">{t.appointments?.noDoctors || 'No doctors found.'}</p>
               </div>
             ) : (
               <div className="grid md:grid-cols-2 gap-5">
@@ -373,7 +420,7 @@ export default function Appointments() {
                       </div>
                       {selectedDoctor?._id === doc._id && (
                         <div className="ml-auto">
-                          <span className="bg-blue-50 text-blue-600 text-xs font-medium px-2.5 py-1 rounded-full border border-blue-100">Selected</span>
+                          <span className="bg-blue-50 text-blue-600 text-xs font-medium px-2.5 py-1 rounded-full border border-blue-100">{t.appointments?.selected || 'Selected'}</span>
                         </div>
                       )}
                     </div>
@@ -381,10 +428,10 @@ export default function Appointments() {
                     {/* Slots */}
                     <div>
                       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                        <FaClock className="inline mr-1" />Available Slots
+                        <FaClock className="inline mr-1" />{t.appointments?.availableSlots || 'Available Slots'}
                       </p>
                       {selectedDoctor?._id !== doc._id ? (
-                        <p className="text-sm text-gray-400 italic">Click to see available slots</p>
+                        <p className="text-sm text-gray-400 italic">{t.appointments?.clickToSee || 'Click to see slots'}</p>
                       ) : loadingSlots ? (
                         <div className="grid grid-cols-3 gap-2">
                           {[1,2,3,4,5,6].map(i => (
@@ -392,7 +439,7 @@ export default function Appointments() {
                           ))}
                         </div>
                       ) : slots.length === 0 ? (
-                        <p className="text-sm text-gray-400">No available slots on this date.</p>
+                        <p className="text-sm text-gray-400">{t.appointments?.noSlots || 'No available slots on this day.'}</p>
                       ) : (
                         <div className="grid grid-cols-3 gap-2">
                           {slots.map((slot, idx) => (
@@ -426,14 +473,18 @@ export default function Appointments() {
             {/* Upcoming */}
             <div>
               <h3 className="display-font text-lg font-semibold text-gray-800 mb-3">
-                Upcoming <span className="text-blue-500">({upcomingAppointments.length})</span>
+                {t.appointments?.upcomingAppointments || 'Upcoming Appointments'} <span className="text-blue-500">({upcomingAppointments.length})</span>
               </h3>
-              {upcomingAppointments.length === 0 ? (
+              {loadingAppointments ? (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {[1,2].map(i => <div key={i} className="skeleton h-32 rounded-2xl" />)}
+                </div>
+              ) : upcomingAppointments.length === 0 ? (
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
                   <FaCalendarAlt className="text-gray-200 text-4xl mx-auto mb-3" />
-                  <p className="text-gray-400 text-sm">No upcoming appointments.</p>
+                  <p className="text-gray-400 text-sm">{t.appointments?.noUpcoming || 'No upcoming appointments.'}</p>
                   <button onClick={() => setBookingMode(true)} className="mt-3 text-blue-500 text-sm font-medium hover:underline flex items-center gap-1 mx-auto">
-                    Book one now <FaArrowRight className="text-xs" />
+                    {t.appointments?.bookNow || 'Book now'} <FaArrowRight className="text-xs" />
                   </button>
                 </div>
               ) : (
@@ -458,7 +509,7 @@ export default function Appointments() {
                           </div>
                         </div>
                         <span className="bg-emerald-50 text-emerald-600 text-xs font-medium px-2.5 py-1 rounded-full border border-emerald-100 flex-shrink-0">
-                          Upcoming
+                          {t.appointments?.upcoming || 'Upcoming'}
                         </span>
                       </div>
                       <div className="mt-3 flex gap-2">
@@ -466,13 +517,13 @@ export default function Appointments() {
                           onClick={() => handleReschedule(app)}
                           className="text-blue-500 hover:text-blue-700 text-sm flex items-center gap-1"
                         >
-                          <FaEdit /> Reschedule
+                          <FaEdit /> {t.appointments?.reschedule || 'Reschedule'}
                         </button>
                         <button
                           onClick={() => handleCancel(app._id)}
                           className="text-red-500 hover:text-red-700 text-sm flex items-center gap-1"
                         >
-                          <FaTrash /> Cancel
+                          <FaTrash /> {t.appointments?.cancelAppointment || 'Cancel'}
                         </button>
                       </div>
                     </div>
@@ -481,11 +532,11 @@ export default function Appointments() {
               )}
             </div>
 
-            {/* Past */}
+            {/* Past Visits */}
             {pastAppointments.length > 0 && (
               <div>
                 <h3 className="display-font text-lg font-semibold text-gray-800 mb-3">
-                  Past Visits <span className="text-gray-400">({pastAppointments.length})</span>
+                  {t.appointments?.pastVisits || 'Past Visits'} <span className="text-gray-400">({pastAppointments.length})</span>
                 </h3>
                 <div className="grid md:grid-cols-2 gap-4">
                   {pastAppointments.map((app) => (
@@ -508,7 +559,7 @@ export default function Appointments() {
                           </div>
                         </div>
                         <span className="bg-gray-100 text-gray-500 text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0">
-                          Completed
+                          {t.appointments?.completed || 'Completed'}
                         </span>
                       </div>
                     </div>
@@ -527,21 +578,21 @@ export default function Appointments() {
             <div className="w-14 h-14 rounded-2xl bg-blue-100 flex items-center justify-center mx-auto mb-5">
               <FaCalendarAlt className="text-blue-600 text-2xl" />
             </div>
-            <h3 className="display-font text-xl font-semibold text-gray-800 text-center mb-5">Confirm Booking</h3>
+            <h3 className="display-font text-xl font-semibold text-gray-800 text-center mb-5">{t.appointments?.confirmBooking || 'Confirm Booking'}</h3>
 
             <div className="space-y-3 mb-6">
               <div className="flex justify-between items-center bg-gray-50 rounded-xl px-4 py-3">
-                <span className="text-sm text-gray-500">Doctor</span>
+                <span className="text-sm text-gray-500">{t.appointments?.doctor || 'Doctor'}</span>
                 <span className="text-sm font-semibold text-gray-800">Dr. {confirmation.doctor.name}</span>
               </div>
               <div className="flex justify-between items-center bg-gray-50 rounded-xl px-4 py-3">
-                <span className="text-sm text-gray-500">Date</span>
+                <span className="text-sm text-gray-500">{t.appointments?.date || 'Date'}</span>
                 <span className="text-sm font-semibold text-gray-800">
                   {new Date(selectedDate).toLocaleDateString([], { weekday: 'short', month: 'long', day: 'numeric' })}
                 </span>
               </div>
               <div className="flex justify-between items-center bg-blue-50 rounded-xl px-4 py-3 border border-blue-100">
-                <span className="text-sm text-blue-600">Time</span>
+                <span className="text-sm text-blue-600">{t.appointments?.time || 'Time'}</span>
                 <span className="text-sm font-bold text-blue-700">
                   {new Date(confirmation.slot.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
@@ -553,14 +604,14 @@ export default function Appointments() {
                 onClick={() => setConfirmation(null)}
                 className="flex-1 py-2.5 border border-gray-200 rounded-xl text-gray-600 text-sm font-medium hover:bg-gray-50 transition"
               >
-                Cancel
+                {t.common?.cancel || 'Cancel'}
               </button>
               <button
                 onClick={handleBook}
                 className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition"
                 style={{ background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)', boxShadow: '0 4px 14px rgba(59,130,246,0.35)' }}
               >
-                Confirm Booking
+                {t.appointments?.confirm || 'Confirm'}
               </button>
             </div>
           </div>
@@ -571,10 +622,10 @@ export default function Appointments() {
       {rescheduling && (
         <div className="modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="modal-box bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <h3 className="display-font text-xl font-semibold text-gray-800 mb-4">Reschedule Appointment</h3>
+            <h3 className="display-font text-xl font-semibold text-gray-800 mb-4">{t.appointments?.rescheduleTitle || 'Reschedule Appointment'}</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Select New Date</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t.appointments?.selectNewDate || 'Select new date'}</label>
                 <input
                   type="date"
                   value={rescheduleNewDate}
@@ -587,13 +638,13 @@ export default function Appointments() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Select New Time</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t.appointments?.selectNewTime || 'Select new time'}</label>
                 {loadingRescheduleSlots ? (
                   <div className="grid grid-cols-3 gap-2">
                     {[1,2,3].map(i => <div key={i} className="skeleton h-9 rounded-lg" />)}
                   </div>
                 ) : availableSlotsForReschedule.length === 0 ? (
-                  <p className="text-gray-400 text-sm">No slots available on this date.</p>
+                  <p className="text-gray-400 text-sm">{t.appointments?.noRescheduleSlots || 'No available slots on this day.'}</p>
                 ) : (
                   <div className="grid grid-cols-3 gap-2">
                     {availableSlotsForReschedule.map((slot, idx) => (
@@ -614,14 +665,14 @@ export default function Appointments() {
                 onClick={() => setRescheduling(null)}
                 className="flex-1 py-2.5 border border-gray-200 rounded-xl text-gray-600"
               >
-                Cancel
+                {t.common?.cancel || 'Cancel'}
               </button>
               <button
                 onClick={handleRescheduleConfirm}
                 disabled={!rescheduleNewSlot}
                 className="flex-1 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl disabled:opacity-50"
               >
-                Confirm
+                {t.appointments?.confirm || 'Confirm'}
               </button>
             </div>
           </div>

@@ -81,7 +81,7 @@ const getFallbackResponse = (message, patientData) => {
   const msg = message.toLowerCase().trim();
   const { appointments, feedbacks, scans } = patientData;
 
-  // ---------- Greetings & Small Talk ----------
+  // Greetings & Small Talk
   if (msg.match(/^(hi|hello|hey|greetings)/)) {
     return "Hello! I'm your hospital assistant. How can I help you today?";
   }
@@ -101,7 +101,7 @@ const getFallbackResponse = (message, patientData) => {
     return "Goodbye! Take care and stay healthy!";
   }
 
-  // ---------- Domain‑Specific (Appointments, Feedback, Scans) ----------
+  // Domain‑Specific (Appointments, Feedback, Scans)
   if (msg.includes('appointment') || msg.includes('book') || msg.includes('schedule')) {
     if (appointments.length === 0) {
       return "You don't have any upcoming appointments. You can book one from the Appointments page.";
@@ -134,12 +134,10 @@ const getFallbackResponse = (message, patientData) => {
     return `Your latest skin scan was on ${new Date(last.createdAt).toLocaleDateString()}. ${last.analysisResult || 'No analysis saved.'}`;
   }
 
-  // ---------- Help ----------
   if (msg.includes('help') || msg.includes('what can you do')) {
     return "I can help you with:\n- Checking your upcoming appointments\n- Reviewing your past feedback\n- Viewing your skin scan history\n- Answering general health questions\nJust ask me anything!";
   }
 
-  // ---------- Out of Scope ----------
   return "I'm sorry, I don't have information about that. For any further assistance, please contact our customer service at +94 76 752 0033.";
 };
 
@@ -200,7 +198,6 @@ Important guidelines:
           ...recentMessages.map(m => ({ role: m.role, content: m.content }))
         ];
 
-        // Choose model based on provider
         const model = AI_PROVIDER === 'groq' ? 'llama-3.3-70b-versatile' : 'gpt-3.5-turbo';
 
         const completion = await aiClient.chat.completions.create({
@@ -213,7 +210,6 @@ Important guidelines:
         reply = completion.choices[0].message.content.trim();
       } catch (aiError) {
         console.error('[Chat] AI error:', aiError.message);
-        console.error(aiError);
         reply = getFallbackResponse(message, patientData);
       }
     } else {
@@ -227,7 +223,6 @@ Important guidelines:
     res.json({ reply });
   } catch (error) {
     console.error('[Chat] Unhandled error:', error);
-    console.error(error.stack);
     res.status(500).json({ error: 'Failed to process your message. Please try again later.' });
   }
 };

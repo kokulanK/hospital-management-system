@@ -4,9 +4,14 @@ import { useAuth } from "../../contexts/AuthContext";
 import api from "../../api/axios";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from './DashboardLayout';
-import { FaUserEdit, FaTrash, FaLock, FaEnvelope, FaUser, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
+import { useLanguage } from '../../contexts/LanguageContext';
+import { 
+  FaUserEdit, FaTrash, FaLock, FaEnvelope, FaUser, FaCheckCircle, FaTimesCircle,
+  FaHistory, FaInfoCircle, FaChevronDown, FaChevronUp, FaCalendarAlt
+} from "react-icons/fa";
 
 export default function Profile() {
+  const { t } = useLanguage();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -21,6 +26,7 @@ export default function Profile() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -31,7 +37,7 @@ export default function Profile() {
     setMessage("");
 
     if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
-      setError("New passwords do not match");
+      setError(t.profile?.passwordsDoNotMatch || "Passwords do not match");
       return;
     }
 
@@ -44,10 +50,10 @@ export default function Profile() {
       });
 
       localStorage.setItem("user", JSON.stringify(data));
-      setMessage("Profile updated successfully");
+      setMessage(t.profile?.updateSuccess || "Profile updated successfully");
       setFormData({ ...formData, currentPassword: "", newPassword: "", confirmPassword: "" });
     } catch (err) {
-      setError(err.response?.data?.message || "Update failed");
+      setError(err.response?.data?.message || t.profile?.updateFailed || "Update failed");
     } finally {
       setSubmitting(false);
     }
@@ -59,7 +65,7 @@ export default function Profile() {
       logout();
       navigate("/");
     } catch (err) {
-      setError(err.response?.data?.message || "Delete failed");
+      setError(err.response?.data?.message || t.profile?.deleteFailed || "Account deletion failed");
       setShowDeleteModal(false);
     }
   };
@@ -67,6 +73,11 @@ export default function Profile() {
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : 'P';
+
+  // Member since (mock – you can replace with real data from user.createdAt if available)
+  const memberSince = user?.createdAt 
+    ? new Date(user.createdAt).toLocaleDateString([], { month: 'long', year: 'numeric' })
+    : 'January 2025';
 
   return (
     <DashboardLayout activePage="profile">
@@ -186,12 +197,14 @@ export default function Profile() {
           border-top: 1.5px solid #f3f4f6;
           margin: 4px 0;
         }
+        .fade-in { animation: fadeUp 0.4s ease forwards; opacity: 0; }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
       `}</style>
 
-      <div className="profile-root max-w-3xl mx-auto space-y-6 pb-10">
+      <div className="profile-root max-w-3xl mx-auto space-y-6 pb-10 px-4 sm:px-0">
 
-        {/* ── Hero ── */}
-        <div className="hero-profile rounded-2xl p-7 md:p-9 text-white relative overflow-hidden">
+        {/* Hero Section */}
+        <div className="hero-profile rounded-2xl p-6 md:p-9 text-white relative overflow-hidden">
           <div className="absolute inset-0 pointer-events-none">
             <div style={{position:'absolute',width:260,height:260,background:'radial-gradient(circle,rgba(96,165,250,0.15) 0%,transparent 70%)',top:-50,right:-40,borderRadius:'50%'}} />
             <div style={{position:'absolute',width:150,height:150,background:'radial-gradient(circle,rgba(167,139,250,0.12) 0%,transparent 70%)',bottom:-30,left:50,borderRadius:'50%'}} />
@@ -203,39 +216,81 @@ export default function Profile() {
               </div>
             </div>
             <div>
-              <p className="text-blue-200 text-xs font-medium tracking-widest uppercase mb-1">My Account</p>
+              <p className="text-blue-200 text-xs font-medium tracking-widest uppercase mb-1">{t.profile?.myAccount || 'MY ACCOUNT'}</p>
               <h1 className="display-font text-2xl md:text-3xl font-semibold">{user?.name || 'Patient'}</h1>
               <p className="text-blue-200 text-sm mt-0.5">{user?.email}</p>
             </div>
           </div>
         </div>
 
-        {/* ── Toast Messages ── */}
+        {/* Stats & User Guide Section */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Stats Card */}
+          <div className="md:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5 fade-in">
+            <div className="flex items-center gap-2 mb-3">
+              <FaHistory className="text-blue-500" />
+              <h3 className="display-font font-semibold text-gray-800">{t.profile?.accountSummary || 'Account Summary'}</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-gray-400">{t.profile?.memberSince || 'Member since'}</p>
+                <p className="text-lg font-semibold text-gray-800 flex items-center gap-1">
+                  <FaCalendarAlt className="text-blue-400 text-sm" /> {memberSince}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">{t.profile?.accountType || 'Account type'}</p>
+                <p className="text-lg font-semibold text-gray-800 capitalize">{user?.role || 'Patient'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* User Guide Toggle Card */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 cursor-pointer fade-in" onClick={() => setShowGuide(!showGuide)}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FaInfoCircle className="text-violet-500" />
+                <h3 className="display-font font-semibold text-gray-800">{t.profile?.userGuide || 'User Guide'}</h3>
+              </div>
+              {showGuide ? <FaChevronUp /> : <FaChevronDown />}
+            </div>
+            {showGuide && (
+              <div className="mt-3 text-sm text-gray-600 space-y-2">
+                <p>✏️ <strong>{t.profile?.step1Title || 'Step 1:'}</strong> {t.profile?.step1Desc || 'Update your name – it will appear on all communications.'}</p>
+                <p>🔒 <strong>{t.profile?.step2Title || 'Step 2:'}</strong> {t.profile?.step2Desc || 'Change your password by filling current + new password fields.'}</p>
+                <p>⚠️ <strong>{t.profile?.step3Title || 'Step 3:'}</strong> {t.profile?.step3Desc || 'Delete account only if you wish to permanently remove all data.'}</p>
+                <p className="text-xs text-gray-400 mt-2">💡 {t.profile?.tip || 'Email address cannot be changed – contact support if needed.'}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Toast Messages */}
         {message && (
-          <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700">
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 fade-in">
             <FaCheckCircle className="text-emerald-500 flex-shrink-0" />
             <p className="text-sm font-medium">{message}</p>
             <button onClick={() => setMessage('')} className="ml-auto text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
           </div>
         )}
         {error && (
-          <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-600">
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-600 fade-in">
             <FaTimesCircle className="text-red-400 flex-shrink-0" />
             <p className="text-sm font-medium">{error}</p>
             <button onClick={() => setError('')} className="ml-auto text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
           </div>
         )}
 
-        {/* ── Profile Form ── */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {/* Profile Form */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden fade-in">
           <div className="px-6 py-5 border-b border-gray-50">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center">
                 <FaUserEdit className="text-blue-600 text-base" />
               </div>
               <div>
-                <h2 className="display-font text-lg font-semibold text-gray-800">Personal Information</h2>
-                <p className="text-gray-400 text-xs mt-0.5">Update your name and account details</p>
+                <h2 className="display-font text-lg font-semibold text-gray-800">{t.profile?.personalInfo || 'Personal Information'}</h2>
+                <p className="text-gray-400 text-xs mt-0.5">{t.profile?.updateName || 'Update your name and password'}</p>
               </div>
             </div>
           </div>
@@ -245,7 +300,7 @@ export default function Profile() {
 
               {/* Full Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t.profile?.fullName || 'Full Name'}</label>
                 <div className="input-wrapper">
                   <FaUser className="input-icon" />
                   <input
@@ -254,7 +309,7 @@ export default function Profile() {
                     value={formData.name}
                     onChange={handleChange}
                     className="form-input with-icon"
-                    placeholder="Your full name"
+                    placeholder={t.profile?.fullName || 'Full Name'}
                     required
                   />
                 </div>
@@ -262,7 +317,7 @@ export default function Profile() {
 
               {/* Email (disabled) */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t.profile?.emailAddress || 'Email Address'}</label>
                 <div className="input-wrapper">
                   <FaEnvelope className="input-icon" />
                   <input
@@ -272,7 +327,7 @@ export default function Profile() {
                     className="form-input with-icon"
                   />
                 </div>
-                <p className="text-xs text-gray-400 mt-1.5 ml-1">Email address cannot be changed.</p>
+                <p className="text-xs text-gray-400 mt-1.5 ml-1">{t.profile?.emailCannotChange || 'Email cannot be changed'}</p>
               </div>
 
               <hr className="section-divider" />
@@ -280,13 +335,13 @@ export default function Profile() {
               {/* Password Section Header */}
               <div className="flex items-center gap-2 pt-1">
                 <FaLock className="text-gray-400 text-sm" />
-                <p className="text-sm font-semibold text-gray-600">Change Password</p>
-                <span className="text-xs text-gray-400 font-normal">(leave blank to keep current)</span>
+                <p className="text-sm font-semibold text-gray-600">{t.profile?.changePassword || 'Change Password'}</p>
+                <span className="text-xs text-gray-400 font-normal">{t.profile?.leaveBlank || '(leave blank to keep current)'}</span>
               </div>
 
               {/* Current Password */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t.profile?.currentPassword || 'Current Password'}</label>
                 <div className="input-wrapper">
                   <FaLock className="input-icon" />
                   <input
@@ -295,14 +350,14 @@ export default function Profile() {
                     value={formData.currentPassword}
                     onChange={handleChange}
                     className="form-input with-icon"
-                    placeholder="Enter current password"
+                    placeholder={t.profile?.currentPassword || 'Current Password'}
                   />
                 </div>
               </div>
 
               {/* New Password */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t.profile?.newPassword || 'New Password'}</label>
                 <div className="input-wrapper">
                   <FaLock className="input-icon" />
                   <input
@@ -311,14 +366,14 @@ export default function Profile() {
                     value={formData.newPassword}
                     onChange={handleChange}
                     className="form-input with-icon"
-                    placeholder="Enter new password"
+                    placeholder={t.profile?.newPassword || 'New Password'}
                   />
                 </div>
               </div>
 
               {/* Confirm Password */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t.profile?.confirmPassword || 'Confirm New Password'}</label>
                 <div className="input-wrapper">
                   <FaLock className="input-icon" />
                   <input
@@ -327,17 +382,17 @@ export default function Profile() {
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     className="form-input with-icon"
-                    placeholder="Re-enter new password"
+                    placeholder={t.profile?.confirmPassword || 'Confirm New Password'}
                   />
                 </div>
                 {formData.newPassword && formData.confirmPassword && formData.newPassword !== formData.confirmPassword && (
                   <p className="text-xs text-red-500 mt-1.5 ml-1 flex items-center gap-1">
-                    <FaTimesCircle className="text-[10px]" /> Passwords do not match
+                    <FaTimesCircle className="text-[10px]" /> {t.profile?.passwordsDoNotMatch || 'Passwords do not match'}
                   </p>
                 )}
                 {formData.newPassword && formData.confirmPassword && formData.newPassword === formData.confirmPassword && (
                   <p className="text-xs text-emerald-500 mt-1.5 ml-1 flex items-center gap-1">
-                    <FaCheckCircle className="text-[10px]" /> Passwords match
+                    <FaCheckCircle className="text-[10px]" /> {t.profile?.passwordsMatch || 'Passwords match'}
                   </p>
                 )}
               </div>
@@ -350,43 +405,43 @@ export default function Profile() {
                 disabled={submitting}
                 className="btn-primary px-6 py-3 text-sm"
               >
-                {submitting ? 'Saving...' : 'Save Changes'}
+                {submitting ? (t.profile?.saving || 'Saving...') : (t.profile?.saveChanges || 'Save Changes')}
               </button>
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(true)}
                 className="btn-danger-outline px-5 py-3 text-sm flex items-center gap-2"
               >
-                <FaTrash className="text-xs" /> Delete Account
+                <FaTrash className="text-xs" /> {t.profile?.deleteAccount || 'Delete Account'}
               </button>
             </div>
           </form>
         </div>
       </div>
 
-      {/* ── Delete Confirmation Modal ── */}
+      {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="modal-overlay fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="modal-box bg-white rounded-2xl shadow-2xl w-full max-w-sm p-7">
             <div className="w-14 h-14 rounded-2xl bg-red-100 flex items-center justify-center mx-auto mb-5">
               <FaTrash className="text-red-500 text-2xl" />
             </div>
-            <h3 className="display-font text-xl font-semibold text-gray-800 text-center mb-2">Delete Account?</h3>
+            <h3 className="display-font text-xl font-semibold text-gray-800 text-center mb-2">{t.profile?.deleteConfirmTitle || 'Delete Account?'}</h3>
             <p className="text-sm text-gray-500 text-center leading-relaxed mb-6">
-              This will permanently delete your account and all associated data. <strong className="text-gray-700">This action cannot be undone.</strong>
+              {t.profile?.deleteWarning || 'This will permanently delete your account and all data. This action cannot be undone.'}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteModal(false)}
                 className="btn-secondary flex-1 py-2.5 text-sm"
               >
-                Cancel
+                {t.common?.cancel || 'Cancel'}
               </button>
               <button
                 onClick={handleDelete}
                 className="btn-danger-solid flex-1 py-2.5 text-sm flex items-center justify-center gap-2"
               >
-                <FaTrash className="text-xs" /> Yes, Delete
+                <FaTrash className="text-xs" /> {t.common?.yes || 'Yes, Delete'}
               </button>
             </div>
           </div>

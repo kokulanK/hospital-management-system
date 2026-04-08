@@ -1,6 +1,7 @@
 // frontend/src/pages/patient/DashboardLayout.jsx
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { 
   FaHome, FaUser, FaCalendarAlt, FaComment, FaMicroscope, FaCog, FaSignOutAlt, FaFileAlt 
 } from 'react-icons/fa';
@@ -8,18 +9,29 @@ import Chatbot from './Chatbot';
 
 export default function DashboardLayout({ children, activePage }) {
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const role = user?.role;
 
+  // Helper to get translation from multiple possible paths
+  const getLabel = (key, fallback) => {
+    // Try common paths
+    if (t.dashboard?.[key]) return t.dashboard[key];
+    if (t.nav?.[key]) return t.nav[key];
+    if (t.common?.[key]) return t.common[key];
+    // Fallback to English
+    return fallback;
+  };
+
   const linksMap = {
     patient: [
-      { to: '/dashboard/patient',              icon: FaHome,       label: 'Home',         key: 'home' },
-      { to: '/dashboard/patient/appointments', icon: FaCalendarAlt,label: 'Appointments', key: 'appointments' },
-      { to: '/dashboard/patient/feedback',     icon: FaComment,    label: 'Feedback',     key: 'feedback' },
-      { to: '/dashboard/patient/ai-scanner',   icon: FaMicroscope, label: 'AI Scanner',   key: 'aiscanner' },
-      { to: '/dashboard/patient/lab-reports',  icon: FaFileAlt,    label: 'Lab Reports',  key: 'labreports' },
-      { to: '/dashboard/patient/profile',      icon: FaUser,       label: 'Profile',      key: 'profile' },
-      { to: '/dashboard/patient/settings',     icon: FaCog,        label: 'Settings',     key: 'settings' },
+      { to: '/dashboard/patient',              icon: FaHome,       label: getLabel('home', 'Home'),         key: 'home' },
+      { to: '/dashboard/patient/appointments', icon: FaCalendarAlt,label: getLabel('appointments', 'Appointments'), key: 'appointments' },
+      { to: '/dashboard/patient/feedback',     icon: FaComment,    label: getLabel('feedback', 'Feedback'),     key: 'feedback' },
+      { to: '/dashboard/patient/ai-scanner',   icon: FaMicroscope, label: getLabel('aiScanner', 'AI Scanner'),   key: 'aiscanner' },
+      { to: '/dashboard/patient/lab-reports',  icon: FaFileAlt,    label: getLabel('labReports', 'Lab Reports'),  key: 'labreports' },
+      { to: '/dashboard/patient/profile',      icon: FaUser,       label: getLabel('profile', 'Profile'),      key: 'profile' },
+      { to: '/dashboard/patient/settings',     icon: FaCog,        label: getLabel('settings', 'Settings'),     key: 'settings' },
     ],
   };
 
@@ -176,7 +188,7 @@ export default function DashboardLayout({ children, activePage }) {
 
         <button onClick={handleLogout} className="logout-btn">
           <FaSignOutAlt size={20} />
-          <span className="sidebar-tooltip">Logout</span>
+          <span className="sidebar-tooltip">{t.common?.logout || 'Logout'}</span>
         </button>
       </aside>
 
