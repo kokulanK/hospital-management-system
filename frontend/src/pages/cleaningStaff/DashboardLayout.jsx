@@ -1,3 +1,4 @@
+// frontend/src/pages/cleaning/DashboardLayout.jsx
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { FaHome, FaClipboardList, FaUser, FaSignOutAlt } from 'react-icons/fa';
@@ -10,7 +11,7 @@ export default function DashboardLayout({ children, activePage }) {
   const links = [
     { to: '/dashboard/cleaning', icon: FaHome, label: 'Home', key: 'home' },
     { to: '/dashboard/cleaning/tasks', icon: FaClipboardList, label: 'My Tasks', key: 'tasks' },
-    { to: '/dashboard/cleaning/supplies', icon: FaBox, label: 'Supply Requests', key: 'supplies' }, // ✅ Added
+    { to: '/dashboard/cleaning/supplies', icon: FaBox, label: 'Supply Requests', key: 'supplies' },
     { to: '/dashboard/cleaning/profile', icon: FaUser, label: 'Profile', key: 'profile' },
   ];
 
@@ -57,25 +58,47 @@ export default function DashboardLayout({ children, activePage }) {
         }
         .logout-btn:hover { background: #fee2e2; color: #ef4444; }
         .sidebar-dot {
-          position: absolute; top: 10px; right: 10px;
-          width: 7px; height: 7px; border-radius: 50%;
+          position: absolute; top: 0px; right: 0px;
+          width: 8px; height: 8px; border-radius: 50%;
           background: #34d399; border: 2px solid white;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
       `}</style>
 
-      <aside className="clean-sidebar fixed top-0 left-0 h-screen w-20 bg-white flex flex-col items-center justify-between py-5"
-        style={{ borderRight: '1.5px solid #f0f2f8', boxShadow: '2px 0 20px rgba(0,0,0,0.04)' }}>
-
-        <div style={{ marginBottom: '8px' }}>
-          <div style={{
-            width: 42, height: 42, borderRadius: 13,
-            background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 14px rgba(59,130,246,0.3)', position: 'relative'
-          }}>
-            <span style={{ color: 'white', fontFamily: "'Fraunces',serif", fontWeight: 700, fontSize: '1rem' }}>M</span>
-            <div className="sidebar-dot" />
-          </div>
+      <aside
+        className="clean-sidebar fixed top-0 left-0 h-screen w-20 bg-white flex flex-col items-center justify-between py-5"
+        style={{ borderRight: '1.5px solid #f0f2f8', boxShadow: '2px 0 20px rgba(0,0,0,0.04)' }}
+      >
+        {/* Logo - clickable to Instagram */}
+        <div style={{ marginBottom: '8px', position: 'relative' }}>
+          <a
+            href="https://www.instagram.com/kosa_tech_pvt_ltd"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              width: 50,
+              height: 50,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+          >
+            <img
+              src="/logo/KOSA%20Tech.svg"
+              alt="KOSA Tech Logo"
+              style={{
+                width: '46px',
+                height: '46px',
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.08))',
+                transition: 'transform 0.2s ease',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            />
+          </a>
+          <div className="sidebar-dot" />
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, justifyContent: 'center' }}>

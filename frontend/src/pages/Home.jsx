@@ -97,9 +97,19 @@ export default function Home() {
       {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-            Medi<span className="text-gray-800">Care</span>+
-          </Link>
+          <a
+            href="https://www.instagram.com/kosa_tech_pvt_ltd"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center"
+          >
+            <img
+              src="/logo/KOSA%20Tech.svg"
+              alt="KOSA Tech Logo"
+              className="h-10 w-auto object-contain hover:scale-105 transition-transform"
+              style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.05))' }}
+            />
+          </a>
           <div className="flex items-center gap-4">
             <Link to="/login" className="text-gray-600 hover:text-blue-600 transition px-3 py-2 rounded-lg">
               Login
@@ -313,7 +323,7 @@ export default function Home() {
         <div className="container mx-auto px-6 text-center relative z-10">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to take control of <span className="italic">your health?</span></h2>
           <p className="text-lg text-blue-100 mb-8 max-w-2xl mx-auto">
-            Join thousands of patients who manage their health smarter with MediCare+. It's free to get started.
+            Join thousands of patients who manage their health smarter with KOSA Tech. It's free to get started.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
@@ -340,10 +350,31 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-12">
-        <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">MediCare+</div>
-          <p className="text-sm">© 2025 MediCare+. All rights reserved. Demo only — not real medical advice.</p>
+      <footer className="bg-gray-900 text-gray-400 py-8">
+        <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+          <a
+            href="https://www.instagram.com/kosa_tech_pvt_ltd"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center"
+          >
+            <img
+              src="/logo/KOSA%20Tech.svg"
+              alt="KOSA Tech Logo"
+              className="h-8 w-auto object-contain hover:scale-105 transition-transform"
+            />
+          </a>
+          <div className="text-center">
+            <p className="text-sm">
+              Developed by <span className="text-white font-medium">KOSA TECH (PVT) LTD</span>
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              © {new Date().getFullYear()} All rights reserved. Demo only — not real medical advice.
+            </p>
+          </div>
+          <div className="text-xs text-gray-500">
+            <span>v1.0.0</span>
+          </div>
         </div>
       </footer>
 

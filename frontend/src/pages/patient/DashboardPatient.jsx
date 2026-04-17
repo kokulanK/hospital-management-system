@@ -78,7 +78,7 @@ export default function DashboardPatient() {
     { label: t.dashboard?.statTotalAppointments || 'Total Appointments', value: appointments.length, icon: FaCalendarAlt, color: 'text-blue-500', bg: 'bg-blue-50' },
     { label: t.dashboard?.statUpcoming || 'Upcoming', value: upcomingAppointments.length, icon: FaClock, color: 'text-amber-500', bg: 'bg-amber-50' },
     { label: t.dashboard?.statSkinScans || 'Skin Scans', value: pastScans.length, icon: FaMicroscope, color: 'text-violet-500', bg: 'bg-violet-50' },
-    { label: t.dashboard?.statCompleted || 'Completed', value: completedCount, icon: FaCheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' }, // replaced health score
+    { label: t.dashboard?.statCompleted || 'Completed', value: completedCount, icon: FaCheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
   ];
 
   return (
@@ -108,21 +108,26 @@ export default function DashboardPatient() {
           background: linear-gradient(135deg, #fef9c3 0%, #fde047 100%);
           border: 1px solid #facc15;
           box-shadow: 0 8px 20px rgba(250, 204, 21, 0.25);
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
         .tip-card:hover {
           transform: translateY(-2px);
           box-shadow: 0 12px 28px rgba(250, 204, 21, 0.35);
+        }
+        @media (max-width: 640px) {
+          .tip-card { padding: 1rem !important; }
+          .tip-card .tip-content { flex-direction: column; align-items: flex-start; }
         }
       `}</style>
 
       <div className="dash-root max-w-6xl mx-auto space-y-6 pb-10">
 
         {/* Hero Banner */}
-        <div className="hero-card rounded-2xl p-8 md:p-10 text-white relative">
+        <div className="hero-card rounded-2xl p-6 md:p-10 text-white relative">
           <div className="relative z-10">
             <p className="text-blue-200 text-sm font-medium tracking-widest uppercase mb-1">{getGreeting()}</p>
-            <h1 className="display-font text-3xl md:text-4xl font-semibold mb-1">{firstName} <span className="italic font-light text-blue-200">👋</span></h1>
-            <p className="text-blue-100 text-base max-w-md">{t.dashboard?.welcomeBack || 'Welcome back to your health hub'}</p>
+            <h1 className="display-font text-2xl md:text-4xl font-semibold mb-1">{firstName} <span className="italic font-light text-blue-200">👋</span></h1>
+            <p className="text-blue-100 text-sm md:text-base max-w-md">{t.dashboard?.welcomeBack || 'Welcome back to your health hub'}</p>
 
             {nextAppointment ? (
               <div className="mt-6 inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-3">
@@ -147,7 +152,24 @@ export default function DashboardPatient() {
           </div>
         </div>
 
-        {/* Stats Row – 4 cards, no percentage */}
+        {/* Health Tip Card - Now directly after hero */}
+        {!tipLoading && tip && (
+          <div className="tip-card rounded-xl p-5 transition-all duration-200 fade-in">
+            <div className="flex items-start gap-3 tip-content">
+              <div className="w-10 h-10 rounded-xl bg-white/80 flex items-center justify-center flex-shrink-0 shadow-sm">
+                <FaLightbulb className="text-amber-600 text-xl" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-amber-800 uppercase tracking-wide flex items-center gap-1">
+                  <span className="text-base">✨</span> {t.dashboard?.healthTip || 'Health Tip'}
+                </p>
+                <p className="text-sm text-gray-800 mt-1 leading-relaxed font-medium break-words">{tip}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Stats Row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {stats.map((stat) => (
             <div key={stat.label} className="stat-card bg-white rounded-2xl p-5 border border-gray-100 shadow-sm fade-in">
@@ -160,27 +182,10 @@ export default function DashboardPatient() {
           ))}
         </div>
 
-        {/* Health Tip Card */}
-        {!tipLoading && tip && (
-          <div className="tip-card rounded-xl p-4 transition-all duration-200 fade-in">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/80 flex items-center justify-center flex-shrink-0 shadow-sm">
-                <FaLightbulb className="text-amber-600 text-xl" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-amber-800 uppercase tracking-wide flex items-center gap-1">
-                  <span className="text-base">✨</span> {t.dashboard?.healthTip || 'Health Tip'}
-                </p>
-                <p className="text-sm text-gray-800 mt-1 leading-relaxed font-medium">{tip}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Quick Actions */}
         <div>
           <h2 className="display-font text-xl font-semibold text-gray-800 mb-3">{t.dashboard?.quickActions || 'Quick Actions'}</h2>
-          <div className="grid sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {quickActions.map((action) => (
               <div key={action.label} onClick={() => navigate(action.to)} className={`action-card bg-gradient-to-br ${action.color} ${action.shadow} shadow-lg rounded-2xl p-6 text-white`}>
                 <action.icon className="text-white/80 text-2xl mb-3" />
