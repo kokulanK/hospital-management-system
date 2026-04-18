@@ -6,22 +6,18 @@ const skinImageSchema = new mongoose.Schema({
     ref: 'User', 
     required: true 
   },
-
   imageUrl: { 
     type: String, 
     required: true 
   },
-
   publicId: { 
     type: String,
     required: true
   },
-
   analysisResult: { 
-    type: String, 
-    default: '' 
+    type: mongoose.Schema.Types.Mixed,  // allows storing objects/arrays
+    default: {} 
   },
-
   createdAt: { 
     type: Date, 
     default: Date.now 

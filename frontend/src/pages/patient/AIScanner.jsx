@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import DashboardLayout from './DashboardLayout';
 import api from '../../api/axios';
 import { useLanguage } from '../../contexts/LanguageContext';
+import Cropper from 'react-easy-crop';
+import getCroppedImg from '../../utils/cropImage';
 import { 
   FaMicroscope, FaUpload, FaCamera, FaTimes, FaTrash, FaSearch, 
   FaCheckCircle, FaSyncAlt, FaExclamationTriangle, FaChartLine, 
@@ -9,9 +11,223 @@ import {
   FaCalendarAlt, FaHistory, FaExpand, FaArrowLeft, FaArrowRight
 } from 'react-icons/fa';
 
+const processAnalysisData = (rawData) => {
+  if (!rawData) return null;
+  if (typeof rawData === 'string') {
+    const confidenceMatch = rawData.match(/(\d+(?:\.\d+)?)%/);
+    const hasRisk = /cancer|malignant|melanoma|high risk|urgent/i.test(rawData);
+    return { type: 'legacy', summary: rawData, confidence: confidenceMatch ? parseFloat(confidenceMatch[1]) : null, riskLevel: hasRisk ? 'high' : 'low' };
+  }
+  if (typeof rawData === 'object') {
+    if (rawData.status === 'rejected') {
+      const reason = rawData.gatekeeper?.reason || 'Unknown';
+      const detail = rawData.gatekeeper?.detail || '';
+      let advice = 'Please retake the photo.';
+      const rLower = reason.toLowerCase();
+      if (rLower.includes('light') || rLower.includes('bright') || detail.toLowerCase().includes('bright')) advice = 'Too dark or bright. Move to better lighting and turn off camera flash.';
+      else if (rLower.includes('blur')) advice = 'Blurry image. Hold the camera steady and wait for focus.';
+      else if (rLower.includes('skin') || rLower.includes('coverage') || rLower.includes('closeup')) advice = 'Not enough skin recognized. Take a close-up picture of the lesion on bare skin.';
+      else if (rLower.includes('center')) advice = 'The lesion is too close to the edge of the image. Please retake the photo and keep the lesion exactly inside the target circle.';
+      return { type: 'rejected', reason, detail, advice };
+    }
+    if (rawData.status === 'accepted' && rawData.classifier) {
+      const confidence = parseFloat(rawData.classifier.confidence);
+      const isDanger = rawData.classifier.label === 'Danger' || rawData.classifier.prediction === 'Danger';
+      
+      if (confidence < 65) {
+         return {
+            type: 'uncertain',
+            confidence: confidence,
+            message: 'Inconclusive Analysis',
+            advice: 'The AI is not confident enough to make a definitive classification on this image. The malignant and benign probabilities are too closely split, meaning the model is uncertain. We highly recommend having this checked by a professional dermatologist.',
+            dominantLabel: isDanger ? 'danger' : 'safe'
+         };
+      }
+      return { 
+         type: isDanger ? 'danger' : 'safe', 
+         confidence: confidence, 
+         message: isDanger ? 'Potential cancer signs detected' : 'No signs of cancer detected', 
+         advice: isDanger ? 'Please consult a doctor or dermatologist immediately for a professional evaluation.' : 'Looks clear, but continue to monitor for any changes.' 
+      };
+    }
+  }
+  return { type: 'unknown', summary: 'Analysis returned an unknown format.' };
+};
+
+const AnalysisResultView = ({ result }) => {
+  if (!result) return null;
+  return (
+    <div className={`rounded-2xl p-5 md:p-6 border mt-4 ${
+       result.type === 'rejected' ? 'bg-orange-50 border-orange-200' :
+       result.type === 'safe' ? 'bg-green-50 border-green-200' :
+       result.type === 'danger' ? 'bg-red-50 border-red-200' :
+       result.type === 'uncertain' ? 'bg-yellow-50 border-yellow-200' :
+       'bg-blue-50 border-blue-200'
+    }`}>
+       {result.type === 'rejected' && (
+          <div className="flex flex-col sm:flex-row gap-4 items-start">
+             <div className="w-12 h-12 bg-orange-100 rounded-full flex justify-center items-center flex-shrink-0">
+                <FaExclamationTriangle className="text-orange-600 text-xl" />
+             </div>
+             <div>
+                <h3 className="font-bold text-orange-800 text-lg">Image Rejected: {result.reason}</h3>
+                <p className="text-orange-700 mt-1">{result.advice}</p>
+                <p className="text-orange-600/70 text-xs mt-2 font-mono bg-orange-100 inline-block p-1 rounded">{result.detail}</p>
+             </div>
+          </div>
+       )}
+       {result.type === 'uncertain' && (
+          <div className="flex flex-col sm:flex-row gap-4 items-start">
+             <div className="w-12 h-12 bg-yellow-100 rounded-full flex justify-center items-center flex-shrink-0">
+                <FaExclamationTriangle className="text-yellow-600 text-xl" />
+             </div>
+             <div className="flex-1 w-full">
+                <h3 className="font-bold text-yellow-800 text-lg">{result.message}</h3>
+                <p className="text-yellow-700 mt-1 font-medium">{result.advice}</p>
+                <div className="mt-4 flex flex-col gap-3">
+                   <div>
+                     <div className="flex justify-between items-end mb-1">
+                       <span className="text-sm font-bold text-gray-800">Malignant (Danger)</span>
+                       <span className="text-sm font-bold text-red-600">
+                         {(result.dominantLabel === 'danger') ? result.confidence.toFixed(1) : (100 - result.confidence).toFixed(1)}%
+                       </span>
+                     </div>
+                     <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                       <div 
+                         className="h-full bg-red-500 rounded-full"
+                         style={{ width: `${(result.dominantLabel === 'danger') ? result.confidence : (100 - result.confidence)}%` }}
+                       />
+                     </div>
+                   </div>
+                   <div>
+                     <div className="flex justify-between items-end mb-1">
+                       <span className="text-sm font-bold text-gray-800">Benign (Safe)</span>
+                       <span className="text-sm font-bold text-green-600">
+                         {(result.dominantLabel === 'safe') ? result.confidence.toFixed(1) : (100 - result.confidence).toFixed(1)}%
+                       </span>
+                     </div>
+                     <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                       <div 
+                         className="h-full bg-green-500 rounded-full"
+                         style={{ width: `${(result.dominantLabel === 'safe') ? result.confidence : (100 - result.confidence)}%` }}
+                       />
+                     </div>
+                   </div>
+                </div>
+                <p className="text-xs text-yellow-700 mt-3 font-medium opacity-80">
+                   The model is too uncertain to classify this image.
+                </p>
+             </div>
+          </div>
+       )}
+       {result.type === 'safe' && (
+          <div className="flex flex-col sm:flex-row gap-4 items-start">
+             <div className="w-12 h-12 bg-green-100 rounded-full flex justify-center items-center flex-shrink-0">
+                <FaCheckCircle className="text-green-600 text-xl" />
+             </div>
+             <div className="flex-1 w-full">
+                <h3 className="font-bold text-green-800 text-lg">{result.message}</h3>
+                <p className="text-green-700 mt-1 font-medium">{result.advice}</p>
+                <div className="mt-4 flex flex-col gap-3">
+                   <div>
+                     <div className="flex justify-between items-end mb-1">
+                       <span className="text-sm font-bold text-gray-800">Malignant (Danger)</span>
+                       <span className="text-sm font-bold text-red-600">
+                         {(100 - result.confidence).toFixed(1)}%
+                       </span>
+                     </div>
+                     <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                       <div className="h-full bg-red-500 rounded-full" style={{ width: `${100 - result.confidence}%` }} />
+                     </div>
+                   </div>
+                   <div>
+                     <div className="flex justify-between items-end mb-1">
+                       <span className="text-sm font-bold text-gray-800">Benign (Safe)</span>
+                       <span className="text-sm font-bold text-green-600">
+                         {result.confidence.toFixed(1)}%
+                       </span>
+                     </div>
+                     <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                       <div className="h-full bg-green-500 rounded-full" style={{ width: `${result.confidence}%` }} />
+                     </div>
+                   </div>
+                </div>
+             </div>
+          </div>
+       )}
+       {result.type === 'danger' && (
+          <div className="flex flex-col sm:flex-row gap-4 items-start">
+             <div className="w-12 h-12 bg-red-100 rounded-full flex justify-center items-center flex-shrink-0">
+                <FaExclamationTriangle className="text-red-600 text-xl" />
+             </div>
+             <div className="flex-1 w-full">
+                <h3 className="font-bold text-red-800 text-lg">{result.message}</h3>
+                <p className="text-red-700 mt-1 font-medium">{result.advice}</p>
+                <div className="mt-4 flex flex-col gap-3">
+                   <div>
+                     <div className="flex justify-between items-end mb-1">
+                       <span className="text-sm font-bold text-gray-800">Malignant (Danger)</span>
+                       <span className="text-sm font-bold text-red-600">
+                         {result.confidence.toFixed(1)}%
+                       </span>
+                     </div>
+                     <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                       <div className="h-full bg-red-500 rounded-full" style={{ width: `${result.confidence}%` }} />
+                     </div>
+                   </div>
+                   <div>
+                     <div className="flex justify-between items-end mb-1">
+                       <span className="text-sm font-bold text-gray-800">Benign (Safe)</span>
+                       <span className="text-sm font-bold text-green-600">
+                         {(100 - result.confidence).toFixed(1)}%
+                       </span>
+                     </div>
+                     <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                       <div className="h-full bg-green-500 rounded-full" style={{ width: `${100 - result.confidence}%` }} />
+                     </div>
+                   </div>
+                </div>
+             </div>
+          </div>
+       )}
+       {(result.type === 'legacy' || result.type === 'unknown') && (
+          <div className="flex flex-col sm:flex-row gap-4 items-start">
+             <div className="w-12 h-12 bg-blue-100 rounded-full flex justify-center items-center flex-shrink-0">
+                <FaInfoCircle className="text-blue-600 text-xl" />
+             </div>
+             <div className="flex-1">
+                <h3 className="font-bold text-blue-800 text-lg">Analysis Complete</h3>
+                <p className="text-blue-700 mt-1">{result.summary || 'Details unavailable'}</p>
+             </div>
+          </div>
+       )}
+    </div>
+  );
+};
+
+const analyzeContrast = (canvasContext, fullWidth, fullHeight) => {
+  const w = fullWidth * 0.5;
+  const h = fullHeight * 0.5;
+  const x = fullWidth * 0.25;
+  const y = fullHeight * 0.25;
+  
+  const imageData = canvasContext.getImageData(x, y, w, h).data;
+  let sum = 0;
+  for (let i = 0; i < imageData.length; i += 4) {
+    sum += (imageData[i] + imageData[i+1] + imageData[i+2]) / 3;
+  }
+  const avg = sum / (w * h);
+  let variance = 0;
+  for (let i = 0; i < imageData.length; i += 4) {
+    const p = (imageData[i] + imageData[i+1] + imageData[i+2]) / 3;
+    variance += Math.pow(p - avg, 2);
+  }
+  const stdDev = Math.sqrt(variance / (w * h));
+  return stdDev > 8;
+};
+
 export default function AIScanner() {
   const { t } = useLanguage();
-  // State management
   const [image, setImage] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [result, setResult] = useState(null);
@@ -26,7 +242,12 @@ export default function AIScanner() {
   const [confidence, setConfidence] = useState(null);
   const [imageAnalysis, setImageAnalysis] = useState(null);
   const [showUserGuide, setShowUserGuide] = useState(false);
-  const [zoomedImage, setZoomedImage] = useState(null); // for micro zoom
+  const [zoomedImage, setZoomedImage] = useState(null);
+  const [isCropping, setIsCropping] = useState(false);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  const [scanStatus, setScanStatus] = useState('searching');
 
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -52,29 +273,30 @@ export default function AIScanner() {
     }
   };
 
-  // Statistics – only one source now
   const getStats = () => {
     const total = pastImages.length;
     const analyzed = pastImages.filter(img => img.analysisResult).length;
-    const highRiskCount = pastImages.filter(img => {
-      if (!img.analysisResult) return false;
-      return /cancer|malignant|melanoma|high risk|urgent/i.test(img.analysisResult);
-    }).length;
+    let highRiskCount = 0;
+    let confSum = 0;
+    let confCount = 0;
+    
+    pastImages.forEach(img => {
+      if (!img.analysisResult) return;
+      const proc = processAnalysisData(img.analysisResult);
+      if (proc?.type === 'danger' || proc?.riskLevel === 'high') highRiskCount++;
+      if (proc?.confidence) {
+        confSum += proc.confidence;
+        confCount++;
+      }
+    });
+    
     const lastScanDate = pastImages.length > 0 ? new Date(pastImages[0].createdAt) : null;
-    const avgConfidence = (() => {
-      const confidences = pastImages.map(img => {
-        const match = img.analysisResult?.match(/(\d+(?:\.\d+)?)%/);
-        return match ? parseFloat(match[1]) : null;
-      }).filter(c => c !== null);
-      if (confidences.length === 0) return null;
-      return (confidences.reduce((a,b) => a + b, 0) / confidences.length).toFixed(1);
-    })();
+    const avgConfidence = confCount > 0 ? (confSum / confCount).toFixed(1) : null;
     return { total, analyzed, highRiskCount, lastScanDate, avgConfidence };
   };
 
   const stats = getStats();
 
-  // Camera handling with explicit front/rear selection
   const startCamera = useCallback(async (mode) => {
     setCameraError(null);
     try {
@@ -87,7 +309,6 @@ export default function AIScanner() {
         await videoRef.current.play();
       }
     } catch (err) {
-      // Fallback to any camera
       try {
         const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
         if (videoRef.current) {
@@ -101,7 +322,6 @@ export default function AIScanner() {
     }
   }, [t]);
 
-  // When camera is activated, start with the current facingMode
   useEffect(() => {
     if (usingCamera) {
       startCamera(facingMode);
@@ -109,6 +329,38 @@ export default function AIScanner() {
       stopCamera();
     }
   }, [usingCamera, facingMode, startCamera]);
+
+  useEffect(() => {
+    let animationFrameId;
+    let lastCheck = 0;
+    const checkLiveFeed = (timestamp) => {
+      if (timestamp - lastCheck > 200) {
+        lastCheck = timestamp;
+        if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+           const v = videoRef.current;
+           const size = Math.min(v.videoWidth, v.videoHeight) * 0.4;
+           const sx = (v.videoWidth - size) / 2;
+           const sy = (v.videoHeight - size) / 2;
+           const cvs = document.createElement('canvas');
+           cvs.width = 64; cvs.height = 64;
+           const ctx = cvs.getContext('2d', { willReadFrequently: true });
+           if (facingMode === 'user') {
+             ctx.translate(64, 0);
+             ctx.scale(-1, 1);
+           }
+           ctx.drawImage(v, sx, sy, size, size, 0, 0, 64, 64);
+           setScanStatus(analyzeContrast(ctx, 64, 64) ? 'found' : 'searching');
+        }
+      }
+      if (usingCamera) {
+         animationFrameId = requestAnimationFrame(checkLiveFeed);
+      }
+    };
+    if (usingCamera) {
+       animationFrameId = requestAnimationFrame(checkLiveFeed);
+    }
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [usingCamera, facingMode]);
 
   const stopCamera = () => {
     const stream = videoRef.current?.srcObject;
@@ -197,8 +449,37 @@ export default function AIScanner() {
     setImageFile(compressedFile);
     setImage(URL.createObjectURL(compressedFile));
     setResult(null);
-    setConfidence(null);
-    setImageAnalysis(null);
+    setZoom(1);
+    setCrop({ x: 0, y: 0 });
+    setIsCropping(true);
+    setScanStatus('searching');
+  };
+
+  const onCropComplete = useCallback((croppedArea, croppedAreaPixels) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+    if (image) {
+       const img = new Image();
+       img.src = image;
+       img.onload = () => {
+         const cvs = document.createElement('canvas');
+         cvs.width = 64; cvs.height = 64;
+         const ctx = cvs.getContext('2d', { willReadFrequently: true });
+         ctx.drawImage(img, croppedAreaPixels.x, croppedAreaPixels.y, croppedAreaPixels.width, croppedAreaPixels.height, 0, 0, 64, 64);
+         setScanStatus(analyzeContrast(ctx, 64, 64) ? 'found' : 'searching');
+       };
+    }
+  }, [image]);
+
+  const handleCropConfirm = async () => {
+    try {
+      const croppedResult = await getCroppedImg(image, croppedAreaPixels);
+      setImageFile(croppedResult.file);
+      setImage(croppedResult.url);
+      setIsCropping(false);
+    } catch (e) {
+      console.error(e);
+      alert('Error cropping image');
+    }
   };
 
   const handleUpload = (e) => {
@@ -215,21 +496,6 @@ export default function AIScanner() {
     }
   };
 
-  const parseAnalysisResult = (analysisText) => {
-    const confidenceMatch = analysisText.match(/(\d+(?:\.\d+)?)%/);
-    const hasRisk = /cancer|malignant|melanoma|high risk|urgent/i.test(analysisText);
-    const hasLowRisk = /benign|low risk|harmless|normal/i.test(analysisText);
-    let riskLevel = 'unknown';
-    if (hasRisk && !hasLowRisk) riskLevel = 'high';
-    else if (hasLowRisk) riskLevel = 'low';
-    
-    return {
-      confidence: confidenceMatch ? parseFloat(confidenceMatch[1]) : null,
-      riskLevel,
-      summary: analysisText
-    };
-  };
-
   const handleAnalyze = async () => {
     if (!imageFile) return;
     setLoading(true);
@@ -240,10 +506,9 @@ export default function AIScanner() {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       const analysis = data.analysisResult;
-      setResult(analysis);
-      const parsed = parseAnalysisResult(analysis);
-      setConfidence(parsed.confidence);
-      setImageAnalysis(parsed);
+      setResult(processAnalysisData(analysis));
+      setConfidence(null);
+      setImageAnalysis(null);
       await fetchPastImages();
     } catch (error) {
       console.error('Upload failed', error);
@@ -258,8 +523,7 @@ export default function AIScanner() {
     setImage(null);
     setImageFile(null);
     setResult(null);
-    setConfidence(null);
-    setImageAnalysis(null);
+    setIsCropping(false);
   };
 
   const handleCancelCamera = () => {
@@ -270,14 +534,6 @@ export default function AIScanner() {
 
   const handleViewPastImage = (img) => {
     setSelectedPastImage(img);
-    if (img.analysisResult) {
-      const parsed = parseAnalysisResult(img.analysisResult);
-      setImageAnalysis(parsed);
-      setConfidence(parsed.confidence);
-    } else {
-      setImageAnalysis(null);
-      setConfidence(null);
-    }
   };
 
   const handleDeletePastImage = async (id) => {
@@ -291,16 +547,6 @@ export default function AIScanner() {
     }
   };
 
-  const getRiskBadge = (riskLevel) => {
-    if (riskLevel === 'high') {
-      return <span className="bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded-full">⚠️ High Risk</span>;
-    } else if (riskLevel === 'low') {
-      return <span className="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded-full">✅ Low Risk</span>;
-    }
-    return null;
-  };
-
-  // Micro zoom: open image in modal
   const openZoom = (imgUrl) => {
     setZoomedImage(imgUrl);
   };
@@ -311,136 +557,44 @@ export default function AIScanner() {
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,600;1,300&family=DM+Sans:wght@400;500;600&display=swap');
         .scanner-root { font-family: 'DM Sans', sans-serif; }
         .display-font { font-family: 'Fraunces', serif; }
-
-        .hero-scanner {
-          background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #1d4ed8 100%);
-        }
-
-        .drop-zone {
-          transition: all 0.2s ease;
-          border: 2.5px dashed #d1d5db;
-        }
-        .drop-zone.active {
-          border-color: #3b82f6;
-          background: #eff6ff;
-        }
-        .drop-zone:hover {
-          border-color: #93c5fd;
-          background: #f8faff;
-        }
-
-        .action-btn {
-          transition: all 0.2s ease;
-          font-weight: 500;
-          font-size: 0.9rem;
-          border-radius: 12px;
-          padding: 11px 20px;
-          cursor: pointer;
-          border: none;
-        }
-        .btn-primary {
-          background: linear-gradient(135deg, #1d4ed8, #3b82f6);
-          color: white;
-          box-shadow: 0 4px 14px rgba(59,130,246,0.35);
-        }
+        .hero-scanner { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #1d4ed8 100%); }
+        .drop-zone { transition: all 0.2s ease; border: 2.5px dashed #d1d5db; }
+        .drop-zone.active { border-color: #3b82f6; background: #eff6ff; }
+        .drop-zone:hover { border-color: #93c5fd; background: #f8faff; }
+        .action-btn { transition: all 0.2s ease; font-weight: 500; font-size: 0.9rem; border-radius: 12px; padding: 11px 20px; cursor: pointer; border: none; }
+        .btn-primary { background: linear-gradient(135deg, #1d4ed8, #3b82f6); color: white; box-shadow: 0 4px 14px rgba(59,130,246,0.35); }
         .btn-primary:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
         .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
-
-        .btn-violet {
-          background: linear-gradient(135deg, #7c3aed, #8b5cf6);
-          color: white;
-          box-shadow: 0 4px 14px rgba(139,92,246,0.3);
-        }
+        .btn-violet { background: linear-gradient(135deg, #7c3aed, #8b5cf6); color: white; box-shadow: 0 4px 14px rgba(139,92,246,0.3); }
         .btn-violet:hover { opacity: 0.9; transform: translateY(-1px); }
-
-        .btn-secondary {
-          background: white;
-          color: #6b7280;
-          border: 1.5px solid #e5e7eb !important;
-        }
+        .btn-secondary { background: white; color: #6b7280; border: 1.5px solid #e5e7eb !important; }
         .btn-secondary:hover { background: #f9fafb; }
-
-        .btn-green {
-          background: linear-gradient(135deg, #059669, #10b981);
-          color: white;
-          box-shadow: 0 4px 14px rgba(16,185,129,0.3);
-        }
+        .btn-green { background: linear-gradient(135deg, #059669, #10b981); color: white; box-shadow: 0 4px 14px rgba(16,185,129,0.3); }
         .btn-green:hover { opacity: 0.9; transform: translateY(-1px); }
-
-        .btn-danger {
-          background: linear-gradient(135deg, #dc2626, #ef4444);
-          color: white;
-          box-shadow: 0 4px 12px rgba(239,68,68,0.25);
-        }
+        .btn-danger { background: linear-gradient(135deg, #dc2626, #ef4444); color: white; box-shadow: 0 4px 12px rgba(239,68,68,0.25); }
         .btn-danger:hover { opacity: 0.9; }
-
-        .scan-card {
-          transition: transform 0.2s, box-shadow 0.2s;
-          cursor: pointer;
-        }
+        .scan-card { transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
         .scan-card:hover { transform: translateY(-3px); box-shadow: 0 10px 28px rgba(0,0,0,0.1); }
-
         .modal-overlay { animation: fadeIn 0.2s ease; }
         .modal-box { animation: slideUp 0.25s ease; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-        .result-card {
-          background: linear-gradient(135deg, #eff6ff, #f0fdf4);
-          border: 1.5px solid #bfdbfe;
-        }
-
-        .pulse-ring {
-          animation: pulseRing 2s infinite;
-        }
-        @keyframes pulseRing {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.3); }
-          50% { box-shadow: 0 0 0 8px rgba(59,130,246,0); }
-        }
-
+        .pulse-ring { animation: pulseRing 2s infinite; }
+        @keyframes pulseRing { 0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.3); } 50% { box-shadow: 0 0 0 8px rgba(59,130,246,0); } }
         .fade-in { animation: fadeUp 0.4s ease forwards; opacity: 0; }
         .fade-in:nth-child(1) { animation-delay: 0.04s; }
         .fade-in:nth-child(2) { animation-delay: 0.10s; }
         .fade-in:nth-child(3) { animation-delay: 0.16s; }
         .fade-in:nth-child(4) { animation-delay: 0.22s; }
         @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
-
-        .loading-bar {
-          height: 3px;
-          background: linear-gradient(90deg, #3b82f6, #8b5cf6, #3b82f6);
-          background-size: 200% 100%;
-          animation: loadingAnim 1.4s linear infinite;
-          border-radius: 2px;
-        }
-        @keyframes loadingAnim {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-
-        .zoom-icon {
-          position: absolute;
-          bottom: 12px;
-          right: 12px;
-          background: rgba(0,0,0,0.6);
-          border-radius: 50%;
-          padding: 8px;
-          color: white;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .zoom-icon:hover {
-          background: rgba(0,0,0,0.8);
-          transform: scale(1.05);
-        }
-
-        @media (max-width: 640px) {
-          .action-btn { padding: 10px 16px; font-size: 0.85rem; }
-          .hero-scanner { padding: 1.5rem; }
-        }
+        .loading-bar { height: 3px; background: linear-gradient(90deg, #3b82f6, #8b5cf6, #3b82f6); background-size: 200% 100%; animation: loadingAnim 1.4s linear infinite; border-radius: 2px; }
+        @keyframes loadingAnim { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .zoom-icon { position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,0.6); border-radius: 50%; padding: 8px; color: white; cursor: pointer; transition: all 0.2s; }
+        .zoom-icon:hover { background: rgba(0,0,0,0.8); transform: scale(1.05); }
+        @media (max-width: 640px) { .action-btn { padding: 10px 16px; font-size: 0.85rem; } .hero-scanner { padding: 1.5rem; } }
       `}</style>
 
       <div className="scanner-root max-w-4xl mx-auto space-y-6 pb-10 px-4 sm:px-0">
-        {/* Hero Section – simplified, no duplicate stats */}
         <div className="hero-scanner rounded-2xl p-6 sm:p-9 text-white relative overflow-hidden">
           <div className="absolute inset-0 pointer-events-none">
             <div style={{position:'absolute',width:280,height:280,background:'radial-gradient(circle,rgba(96,165,250,0.15) 0%,transparent 70%)',top:-60,right:-40,borderRadius:'50%'}} />
@@ -453,9 +607,7 @@ export default function AIScanner() {
           </div>
         </div>
 
-        {/* Single Stats & User Guide Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Stats Card - consolidated */}
           <div className="md:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <div className="flex items-center gap-2 mb-3">
               <FaHistory className="text-blue-500" />
@@ -486,7 +638,6 @@ export default function AIScanner() {
             )}
           </div>
 
-          {/* User Guide Toggle Card */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 cursor-pointer" onClick={() => setShowUserGuide(!showUserGuide)}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -507,7 +658,6 @@ export default function AIScanner() {
           </div>
         </div>
 
-        {/* Scanner Area */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-4 sm:px-6 py-5 border-b border-gray-50 flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center">
@@ -522,7 +672,55 @@ export default function AIScanner() {
           {loading && <div className="loading-bar w-full" />}
 
           <div className="p-4 sm:p-6">
-            {image ? (
+            {isCropping && image ? (
+              <div className="flex flex-col items-center gap-5 fade-in">
+                <div className="relative w-full max-w-lg h-80 sm:h-96 rounded-2xl overflow-hidden bg-black border border-gray-200">
+                  <Cropper
+                    image={image}
+                    crop={crop}
+                    zoom={zoom}
+                    aspect={1}
+                    cropShape="round"
+                    showGrid={false}
+                    onCropChange={setCrop}
+                    onCropComplete={onCropComplete}
+                    onZoomChange={setZoom}
+                    style={{
+                      cropAreaStyle: {
+                        border: scanStatus === 'found' ? '4px dashed rgba(34, 197, 94, 0.9)' : '4px dashed rgba(239, 68, 68, 0.9)',
+                        transition: 'border-color 0.3s ease'
+                      }
+                    }}
+                  />
+                  <div className="absolute top-4 w-full text-center pointer-events-none z-10">
+                     <p className={`text-white text-xs sm:text-sm font-medium inline-block px-4 py-1.5 rounded-full backdrop-blur-sm shadow-md transition-colors duration-300 ${scanStatus === 'found' ? 'bg-green-500/90' : 'bg-red-500/90'}`}>
+                       {scanStatus === 'found' ? 'Lesion Centered Properly' : 'Drag to Center the Lesion'}
+                     </p>
+                  </div>
+                </div>
+                <div className="w-full max-w-lg flex flex-col gap-2 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <p className="text-sm text-center font-medium text-gray-700">Pinch/Scroll to Zoom, Drag to Center</p>
+                  <input
+                    type="range"
+                    value={zoom}
+                    min={1}
+                    max={3}
+                    step={0.1}
+                    aria-label="Zoom"
+                    onChange={(e) => setZoom(e.target.value)}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer mt-2"
+                  />
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3 w-full max-w-lg">
+                  <button onClick={handleCropConfirm} className="action-btn btn-primary flex-1 flex items-center justify-center gap-2">
+                    <FaCheckCircle className="text-sm" /> Confirm & Continue
+                  </button>
+                  <button onClick={handleRemove} className="action-btn btn-secondary flex items-center justify-center gap-2 px-5">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : image ? (
               <div className="flex flex-col items-center gap-5">
                 <div className="relative w-full max-w-lg">
                   <img 
@@ -567,6 +765,14 @@ export default function AIScanner() {
                   <>
                     <div className="relative w-full max-w-lg rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-black">
                       <video ref={videoRef} className="w-full object-cover" style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }} />
+                      <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                        <div className={`w-56 h-56 sm:w-72 sm:h-72 rounded-full border-4 border-dashed shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] transition-colors duration-300 ${scanStatus === 'found' ? 'border-green-500' : 'border-red-500'}`}></div>
+                      </div>
+                      <div className="absolute top-4 w-full text-center pointer-events-none">
+                         <p className={`text-white text-xs sm:text-sm font-medium inline-block px-4 py-1.5 rounded-full backdrop-blur-sm shadow-md transition-colors duration-300 ${scanStatus === 'found' ? 'bg-green-500/90' : 'bg-red-500/90'}`}>
+                            {scanStatus === 'found' ? 'Lesion Detected - Hold Still' : 'No Lesion Found - Keep Centering'}
+                         </p>
+                      </div>
                       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-3 py-1 rounded-full backdrop-blur-sm">
                         {t.scanner?.liveCamera || 'Live Camera'}
                       </div>
@@ -575,7 +781,6 @@ export default function AIScanner() {
                       <button onClick={handleCapture} className="action-btn btn-green flex-1 flex items-center justify-center gap-2">
                         <FaCamera className="text-sm" /> {t.scanner?.capturePhoto || 'Capture'}
                       </button>
-                      {/* Front and Rear camera buttons */}
                       <button onClick={selectFrontCamera} className="action-btn btn-secondary flex items-center justify-center gap-2">
                         <FaCamera className="text-sm" /> Front
                       </button>
@@ -622,30 +827,8 @@ export default function AIScanner() {
           </div>
         </div>
 
-        {/* Analysis Result with Confidence & Risk */}
         {result && (
-          <div className="result-card rounded-2xl p-5 flex flex-col sm:flex-row items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-              <FaCheckCircle className="text-blue-600" />
-            </div>
-            <div className="flex-1">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <p className="font-semibold text-gray-800 text-sm">{t.scanner?.analysisResult || 'Analysis Result'}</p>
-                {imageAnalysis?.riskLevel && getRiskBadge(imageAnalysis.riskLevel)}
-              </div>
-              <p className="text-gray-600 text-sm leading-relaxed">{result}</p>
-              {confidence && (
-                <div className="mt-3 flex items-center gap-2 text-xs">
-                  <FaChartLine className="text-blue-500" />
-                  <span className="text-gray-500">Confidence:</span>
-                  <div className="flex-1 max-w-[150px] bg-gray-200 rounded-full h-1.5">
-                    <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: `${confidence}%` }} />
-                  </div>
-                  <span className="font-medium text-gray-700">{confidence}%</span>
-                </div>
-              )}
-            </div>
-          </div>
+          <AnalysisResultView result={result} />
         )}
 
         {/* Past Scans Section */}
@@ -753,25 +936,7 @@ export default function AIScanner() {
 
             <div className="px-4 sm:px-6 py-4">
               {selectedPastImage.analysisResult ? (
-                <div className="result-card rounded-xl p-4 flex flex-col gap-3">
-                  <div className="flex items-start gap-3">
-                    <FaCheckCircle className="text-blue-500 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{t.scanner?.analysisResult || 'Analysis Result'}</p>
-                      <p className="text-sm text-gray-700 leading-relaxed">{selectedPastImage.analysisResult}</p>
-                    </div>
-                  </div>
-                  {confidence && (
-                    <div className="flex items-center gap-2 text-xs ml-6">
-                      <FaChartLine className="text-blue-500" />
-                      <span className="text-gray-500">Confidence:</span>
-                      <div className="flex-1 max-w-[150px] bg-gray-200 rounded-full h-1.5">
-                        <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: `${confidence}%` }} />
-                      </div>
-                      <span className="font-medium text-gray-700">{confidence}%</span>
-                    </div>
-                  )}
-                </div>
+                <AnalysisResultView result={processAnalysisData(selectedPastImage.analysisResult)} />
               ) : (
                 <p className="text-sm text-gray-400 italic">{t.scanner?.noAnalysisSaved || 'No analysis available for this scan.'}</p>
               )}
