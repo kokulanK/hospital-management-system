@@ -2,6 +2,7 @@ const SkinImage = require('../models/SkinImage');
 const User = require('../models/User');
 const cloudinary = require('../config/cloudinary');
 const axios = require('axios');
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
 
 // Upload new image
 const uploadSkinImage = async (req, res) => {
@@ -33,34 +34,42 @@ const uploadSkinImage = async (req, res) => {
     const imageUrl = req.file.path;
     const publicId = req.file.filename;
 
-    // 1. Default analysis (will be overwritten if AI succeeds)
-    let analysisResult = 'Analysis pending.';
+    // 1. Default container
+    let analysisResult = {};
 
-    // 2. Call AI service (if configured)
-    const aiServiceUrl = process.env.AI_SERVICE_URL;
-    if (aiServiceUrl) {
-      try {
-        const aiResponse = await axios.post(`${aiServiceUrl}/api/predict`, {
-          url: imageUrl
-        });
-        const aiData = aiResponse.data;
-
-        if (aiData.class && aiData.confidence) {
-          analysisResult = `Prediction: ${aiData.class} (confidence: ${(aiData.confidence * 100).toFixed(1)}%)`;
-        } else if (aiData.message) {
-          analysisResult = aiData.message;
-        } else {
-          analysisResult = 'AI analysis completed.';
-        }
-      } catch (aiError) {
-        console.error('AI service call failed:', aiError.message);
-        analysisResult = 'AI analysis unavailable.';
-      }
-    } else {
-      analysisResult = 'AI service not configured.';
+    // 2. Call local AI service (Gatekeeper + Classifier)
+    try {
+      const aiResponse = await axios.post(
+        `${AI_SERVICE_URL}/analyze`,
+        { image_url: imageUrl },
+        { timeout: 30000 }
+      );
+      // Will contain { status: 'rejected'|'accepted', gatekeeper: {...}, classifier?: {...} }
+      analysisResult = aiResponse.data;
+    } catch (aiError) {
+      console.error('AI service call failed:', aiError.response?.data || aiError.message);
+      analysisResult = { 
+        status: 'error', 
+        error: 'AI analysis unavailable', 
+        details: aiError.message 
+      };
     }
 
-    // 3. Save to database
+    // 3. Check if the AI explicitly rejected the image
+    if (analysisResult.status === 'rejected') {
+      // Clean up the image from Cloudinary since it's rejected
+      if (publicId) {
+        cloudinary.uploader.destroy(publicId).catch(err => console.error("Cloudinary cleanup error:", err));
+      }
+      
+      // Return the rejection immediately without saving to the database
+      return res.status(200).json({
+        analysisResult: analysisResult,
+        message: 'Image rejected by AI gatekeeper'
+      });
+    }
+
+    // 4. Save to database for accepted or pending/error images
     const skinImage = new SkinImage({
       user: patientId,
       imageUrl: imageUrl,
