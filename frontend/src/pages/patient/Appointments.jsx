@@ -31,6 +31,15 @@ export default function Appointments() {
   const [availableSlotsForReschedule, setAvailableSlotsForReschedule] = useState([]);
   const [loadingRescheduleSlots, setLoadingRescheduleSlots] = useState(false);
 
+  // Live countdown state
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // Update current time every second
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     fetchDoctors();
     fetchAppointments();
@@ -119,6 +128,26 @@ export default function Appointments() {
     } catch (err) {
       setBookingMessage('error:' + (err.response?.data?.message || t.appointments?.bookingFailed || 'Booking failed.'));
     }
+  };
+
+  // Format countdown string
+  const formatCountdown = (targetTime) => {
+    const diff = targetTime - currentTime;
+    if (diff <= 0) return 'Now';
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    if (days > 0) {
+      return `${days}d ${hours.toString().padStart(2, '0')}:${minutes
+        .toString()
+        .padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+    return `${hours.toString().padStart(2, '0')}:${minutes
+      .toString()
+      .padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
   // Upcoming: only scheduled appointments in the future
@@ -267,11 +296,29 @@ export default function Appointments() {
 
         .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        .timer-pill { transition: all 0.2s; }
+        .tooltip-disabled { position: relative; }
+        .tooltip-disabled:hover::after {
+          content: "Cannot reschedule within 24 hours of appointment";
+          position: absolute;
+          bottom: 100%;
+          left: 50%;
+          transform: translateX(-50%);
+          background: #1f2937;
+          color: white;
+          padding: 4px 8px;
+          border-radius: 6px;
+          font-size: 12px;
+          white-space: nowrap;
+          margin-bottom: 8px;
+          z-index: 10;
+        }
       `}</style>
 
       <div className="appt-root max-w-5xl mx-auto space-y-6 pb-10 px-4 sm:px-0">
 
-        {/* Hero Section – clean, no duplicate stats */}
+        {/* Hero Section */}
         <div className="hero-appt rounded-2xl p-6 sm:p-9 text-white relative overflow-hidden">
           <div className="absolute inset-0 pointer-events-none">
             <div style={{position:'absolute',width:280,height:280,background:'radial-gradient(circle,rgba(96,165,250,0.15) 0%,transparent 70%)',top:-60,right:-40,borderRadius:'50%'}} />
@@ -286,7 +333,6 @@ export default function Appointments() {
 
         {/* Stats & User Guide Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Stats Card */}
           <div className="md:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <div className="flex items-center gap-2 mb-3">
               <FaHistory className="text-blue-500" />
@@ -312,7 +358,6 @@ export default function Appointments() {
             </div>
           </div>
 
-          {/* User Guide Toggle Card */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 cursor-pointer" onClick={() => setShowUserGuide(!showUserGuide)}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -360,8 +405,8 @@ export default function Appointments() {
 
         {/* BOOKING MODE */}
         {bookingMode && (
+          // (unchanged booking section)
           <>
-            {/* Search & Date */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <h3 className="display-font text-lg font-semibold text-gray-800 mb-4">{t.appointments?.findDoctor || 'Find a Doctor'}</h3>
               <div className="flex gap-3 flex-wrap">
@@ -388,7 +433,6 @@ export default function Appointments() {
               </div>
             </div>
 
-            {/* Doctor Cards */}
             {filteredDoctors.length === 0 ? (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center">
                 <FaUserMd className="text-gray-200 text-5xl mx-auto mb-3" />
@@ -425,7 +469,6 @@ export default function Appointments() {
                       )}
                     </div>
 
-                    {/* Slots */}
                     <div>
                       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
                         <FaClock className="inline mr-1" />{t.appointments?.availableSlots || 'Available Slots'}
@@ -489,45 +532,79 @@ export default function Appointments() {
                 </div>
               ) : (
                 <div className="grid md:grid-cols-2 gap-4">
-                  {upcomingAppointments.map((app) => (
-                    <div key={app._id} className="appt-card bg-white rounded-2xl border border-gray-100 shadow-sm p-5 fade-in">
-                      <div className="flex items-start gap-4">
-                        <div className="w-11 h-11 rounded-2xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-blue-600 font-bold">{app.doctor?.name?.[0]?.toUpperCase() || 'D'}</span>
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-800">Dr. {app.doctor?.name}</p>
-                          <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            <span className="flex items-center gap-1 text-xs text-gray-500">
-                              <FaCalendarAlt className="text-blue-400" />
-                              {new Date(app.date).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
-                            </span>
-                            <span className="flex items-center gap-1 text-xs text-gray-500">
-                              <FaClock className="text-blue-400" />
-                              {new Date(app.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                  {upcomingAppointments.map((app) => {
+                    const appointmentTime = new Date(app.date).getTime();
+                    const editDeadline = appointmentTime - 24 * 60 * 60 * 1000;
+                    const canReschedule = editDeadline > currentTime; // more than 24h away
+
+                    return (
+                      <div key={app._id} className="appt-card bg-white rounded-2xl border border-gray-100 shadow-sm p-5 fade-in">
+                        <div className="flex items-start gap-4">
+                          <div className="w-11 h-11 rounded-2xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                            <span className="text-blue-600 font-bold">{app.doctor?.name?.[0]?.toUpperCase() || 'D'}</span>
                           </div>
+                          <div className="flex-1">
+                            <p className="font-semibold text-gray-800">Dr. {app.doctor?.name}</p>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <span className="flex items-center gap-1 text-xs text-gray-500">
+                                <FaCalendarAlt className="text-blue-400" />
+                                {new Date(app.date).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
+                              </span>
+                              <span className="flex items-center gap-1 text-xs text-gray-500">
+                                <FaClock className="text-blue-400" />
+                                {new Date(app.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+
+                            {/* Two Countdown Timers */}
+                            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                              <div className="timer-pill flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-full">
+                                <FaClock className="text-blue-500 text-[10px]" />
+                                <span className="text-xs text-gray-600">Appointment in:</span>
+                                <span className="text-xs font-mono font-medium text-blue-700">
+                                  {appointmentTime > currentTime
+                                    ? formatCountdown(appointmentTime)
+                                    : 'Started'}
+                                </span>
+                              </div>
+                              <div className="timer-pill flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-full">
+                                <FaClock className="text-amber-500 text-[10px]" />
+                                <span className="text-xs text-gray-600">Reschedule window:</span>
+                                <span className="text-xs font-mono font-medium text-amber-700">
+                                  {canReschedule ? formatCountdown(editDeadline) + ' left' : 'Locked'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <span className="bg-emerald-50 text-emerald-600 text-xs font-medium px-2.5 py-1 rounded-full border border-emerald-100 flex-shrink-0">
+                            {t.appointments?.upcoming || 'Upcoming'}
+                          </span>
                         </div>
-                        <span className="bg-emerald-50 text-emerald-600 text-xs font-medium px-2.5 py-1 rounded-full border border-emerald-100 flex-shrink-0">
-                          {t.appointments?.upcoming || 'Upcoming'}
-                        </span>
+                        <div className="mt-3 flex gap-2">
+                          <div className={`${!canReschedule ? 'tooltip-disabled' : ''}`}>
+                            <button
+                              onClick={() => canReschedule && handleReschedule(app)}
+                              disabled={!canReschedule}
+                              className={`text-sm flex items-center gap-1 ${
+                                canReschedule
+                                  ? 'text-blue-500 hover:text-blue-700'
+                                  : 'text-gray-300 cursor-not-allowed'
+                              }`}
+                              title={!canReschedule ? 'Cannot reschedule within 24 hours of appointment' : ''}
+                            >
+                              <FaEdit /> {t.appointments?.reschedule || 'Reschedule'}
+                            </button>
+                          </div>
+                          <button
+                            onClick={() => handleCancel(app._id)}
+                            className="text-red-500 hover:text-red-700 text-sm flex items-center gap-1"
+                          >
+                            <FaTrash /> {t.appointments?.cancelAppointment || 'Cancel'}
+                          </button>
+                        </div>
                       </div>
-                      <div className="mt-3 flex gap-2">
-                        <button
-                          onClick={() => handleReschedule(app)}
-                          className="text-blue-500 hover:text-blue-700 text-sm flex items-center gap-1"
-                        >
-                          <FaEdit /> {t.appointments?.reschedule || 'Reschedule'}
-                        </button>
-                        <button
-                          onClick={() => handleCancel(app._id)}
-                          className="text-red-500 hover:text-red-700 text-sm flex items-center gap-1"
-                        >
-                          <FaTrash /> {t.appointments?.cancelAppointment || 'Cancel'}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -571,7 +648,7 @@ export default function Appointments() {
         )}
       </div>
 
-      {/* Confirmation Modal for Booking */}
+      {/* Confirmation Modal */}
       {confirmation && (
         <div className="modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="modal-box bg-white rounded-2xl shadow-2xl w-full max-w-sm p-7">
