@@ -209,7 +209,7 @@ export default function SupplyRequests() {
         )}
       </div>
 
-      {/* Create Request Modal */}
+      {/* Create Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="modal-animation bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
@@ -271,7 +271,7 @@ export default function SupplyRequests() {
         </div>
       )}
 
-      {/* Edit Request Modal */}
+      {/* Edit Modal */}
       {showEditModal && editingRequest && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="modal-animation bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
