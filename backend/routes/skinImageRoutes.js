@@ -1,36 +1,24 @@
-const mongoose = require('mongoose');
-
-const supplyRequestSchema = new mongoose.Schema({
-  staff: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  itemName: { type: String, required: true },
-  quantity: { type: Number, required: true, min: 1 },
-  status: {
-    type: String,
-    enum: ['pending', 'approved', 'delivered'],
-    default: 'pending'
-  },
-  notes: { type: String, default: '' },
-  approvedAt: { type: Date },
-  deliveredAt: { type: Date },
-}, { timestamps: true });
-
-module.exports = mongoose.model('SupplyRequest', supplyRequestSchema);" "const express = require('express');
-const { protect, authorize } = require('../middleware/authMiddleware');
+const express = require('express');
+const { protect } = require('../middleware/authMiddleware');
+const upload = require('../middleware/uploadMiddleware');
 const {
-  createSupplyRequest,
-  getMySupplyRequests,
-  getAllSupplyRequests,
-  updateSupplyRequestStatus
-} = require('../controllers/supplyRequestController');
+  uploadSkinImage,
+  getUserSkinImages,
+  getSkinImageById,
+  deleteSkinImage
+} = require('../controllers/skinImageController');
 
 const router = express.Router();
 
-// Routes for cleaning staff
-router.post('/', protect, authorize('cleaningStaff'), createSupplyRequest);
-router.get('/my', protect, authorize('cleaningStaff'), getMySupplyRequests);
+// All routes require authentication
+router.use(protect);
 
-// Routes for admin
-router.get('/', protect, authorize('admin'), getAllSupplyRequests);
-router.put('/:id', protect, authorize('admin'), updateSupplyRequestStatus);
+router.route('/')
+  .get(getUserSkinImages)
+  .post(upload.single('image'), uploadSkinImage);
+
+router.route('/:id')
+  .get(getSkinImageById)
+  .delete(deleteSkinImage);
 
 module.exports = router;
