@@ -50,7 +50,7 @@ const getAllSupplyRequests = async (req, res) => {
 };
 
 // @desc    Update request status (admin only)
-// @route   PUT /api/supply-requests/:id
+// @route   PATCH /api/supply-requests/:id/status
 // @access  Private (admin)
 const updateSupplyRequestStatus = async (req, res) => {
   try {
@@ -72,9 +72,50 @@ const updateSupplyRequestStatus = async (req, res) => {
   }
 };
 
+// @desc    Update a pending supply request (cleaning staff only)
+// @route   PUT /api/supply-requests/:id
+// @access  Private (cleaningStaff)
+const updateMySupplyRequest = async (req, res) => {
+  try {
+    const { itemName, quantity, notes } = req.body;
+
+    // Find request belonging to the logged-in staff
+    const request = await SupplyRequest.findOne({
+      _id: req.params.id,
+      staff: req.user._id
+    });
+
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    // Only allow editing if status is still 'pending'
+    if (request.status !== 'pending') {
+      return res.status(400).json({ message: 'Only pending requests can be edited' });
+    }
+
+    // Validate required fields
+    if (!itemName || !quantity) {
+      return res.status(400).json({ message: 'Item name and quantity are required' });
+    }
+
+    // Update fields
+    request.itemName = itemName;
+    request.quantity = quantity;
+    request.notes = notes || '';
+
+    await request.save();
+    res.json(request);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   createSupplyRequest,
   getMySupplyRequests,
   getAllSupplyRequests,
-  updateSupplyRequestStatus
+  updateSupplyRequestStatus,
+  updateMySupplyRequest
 };

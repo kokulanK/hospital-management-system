@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from './DashboardLayout';
 import api from '../../api/axios';
-import { FaBox, FaPlus, FaCheckCircle, FaTimesCircle, FaClock } from 'react-icons/fa';
+import { FaBox, FaPlus, FaCheckCircle, FaTimesCircle, FaClock, FaEdit } from 'react-icons/fa';
 
 export default function SupplyRequests() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingRequest, setEditingRequest] = useState(null);
   const [formData, setFormData] = useState({
     itemName: '',
     quantity: 1,
@@ -34,6 +36,16 @@ export default function SupplyRequests() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const openEditModal = (request) => {
+    setEditingRequest(request);
+    setFormData({
+      itemName: request.itemName,
+      quantity: request.quantity,
+      notes: request.notes || ''
+    });
+    setShowEditModal(true);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -51,15 +63,50 @@ export default function SupplyRequests() {
     }
   };
 
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    if (!editingRequest) return;
+    setSubmitting(true);
+    setMessage('');
+    try {
+      await api.put(`/supply-requests/${editingRequest._id}`, formData);
+      setMessage('success:Request updated');
+      setShowEditModal(false);
+      setEditingRequest(null);
+      setFormData({ itemName: '', quantity: 1, notes: '' });
+      fetchRequests();
+    } catch (err) {
+      setMessage('error:' + (err.response?.data?.message || 'Update failed'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const msgType = message.startsWith('success:') ? 'success' : 'error';
   const msgText = message.replace(/^(success:|error:)/, '');
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'pending': return <span className="bg-amber-50 text-amber-600 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1"><FaClock /> Pending</span>;
-      case 'approved': return <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1"><FaCheckCircle /> Approved</span>;
-      case 'delivered': return <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1"><FaCheckCircle /> Delivered</span>;
-      default: return null;
+      case 'pending':
+        return (
+          <span className="bg-amber-50 text-amber-600 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+            <FaClock /> Pending
+          </span>
+        );
+      case 'approved':
+        return (
+          <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+            <FaCheckCircle /> Approved
+          </span>
+        );
+      case 'delivered':
+        return (
+          <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+            <FaCheckCircle /> Delivered
+          </span>
+        );
+      default:
+        return null;
     }
   };
 
@@ -95,21 +142,33 @@ export default function SupplyRequests() {
           </div>
         </div>
 
-        {/* Toast */}
+        {/* Toast Message */}
         {message && (
-          <div className={`flex items-center gap-3 p-4 rounded-xl border ${
-            msgType === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-600'
-          }`}>
-            {msgType === 'success' ? <FaCheckCircle className="text-emerald-500" /> : <FaTimesCircle className="text-red-400" />}
+          <div
+            className={`flex items-center gap-3 p-4 rounded-xl border ${
+              msgType === 'success'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                : 'bg-red-50 border-red-200 text-red-600'
+            }`}
+          >
+            {msgType === 'success' ? (
+              <FaCheckCircle className="text-emerald-500" />
+            ) : (
+              <FaTimesCircle className="text-red-400" />
+            )}
             <p className="text-sm font-medium">{msgText}</p>
-            <button onClick={() => setMessage('')} className="ml-auto text-gray-400 hover:text-gray-600">&times;</button>
+            <button onClick={() => setMessage('')} className="ml-auto text-gray-400 hover:text-gray-600">
+              &times;
+            </button>
           </div>
         )}
 
         {/* Requests List */}
         {loading ? (
           <div className="space-y-3">
-            {[1,2,3].map(i => <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />)}
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />
+            ))}
           </div>
         ) : requests.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center">
@@ -118,8 +177,11 @@ export default function SupplyRequests() {
           </div>
         ) : (
           <div className="space-y-4">
-            {requests.map(req => (
-              <div key={req._id} className="request-card bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            {requests.map((req) => (
+              <div
+                key={req._id}
+                className="request-card bg-white rounded-2xl border border-gray-100 shadow-sm p-5"
+              >
                 <div className="flex items-start justify-between flex-wrap gap-3">
                   <div>
                     <p className="font-semibold text-gray-800">{req.itemName}</p>
@@ -131,6 +193,14 @@ export default function SupplyRequests() {
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     {getStatusBadge(req.status)}
+                    {req.status === 'pending' && (
+                      <button
+                        onClick={() => openEditModal(req)}
+                        className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                      >
+                        <FaEdit size={14} /> Edit
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -139,7 +209,7 @@ export default function SupplyRequests() {
         )}
       </div>
 
-      {/* Create Modal */}
+      {/* Create Request Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="modal-animation bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
@@ -191,6 +261,70 @@ export default function SupplyRequests() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
+                  className="flex-1 py-2.5 border border-gray-200 rounded-xl text-gray-600"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Request Modal */}
+      {showEditModal && editingRequest && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="modal-animation bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <h2 className="display-font text-xl font-semibold text-gray-800 mb-4">Edit Request</h2>
+            <form onSubmit={handleUpdate} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Item Name</label>
+                <input
+                  type="text"
+                  name="itemName"
+                  value={formData.itemName}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                <input
+                  type="number"
+                  name="quantity"
+                  value={formData.quantity}
+                  onChange={handleInputChange}
+                  min="1"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                <textarea
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleInputChange}
+                  rows="3"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-medium disabled:opacity-50"
+                >
+                  {submitting ? 'Updating...' : 'Update Request'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingRequest(null);
+                    setFormData({ itemName: '', quantity: 1, notes: '' });
+                  }}
                   className="flex-1 py-2.5 border border-gray-200 rounded-xl text-gray-600"
                 >
                   Cancel
