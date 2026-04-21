@@ -1,156 +1,80 @@
-const SkinImage = require('../models/SkinImage');
-const User = require('../models/User');
-const cloudinary = require('../config/cloudinary');
-const axios = require('axios');
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+const SupplyRequest = require('../models/SupplyRequest');
 
-// Upload new image
-const uploadSkinImage = async (req, res) => {
+// @desc    Create a supply request (cleaning staff only)
+// @route   POST /api/supply-requests
+// @access  Private (cleaningStaff)
+const createSupplyRequest = async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
+    const { itemName, quantity, notes } = req.body;
+    if (!itemName || !quantity) {
+      return res.status(400).json({ message: 'Item name and quantity are required' });
     }
-
-    let patientId = req.user._id;
-
-    // Receptionist uploading for patient
-    if (req.user.role === 'receptionist' && req.body.patientId) {
-      const patient = await User.findOne({
-        _id: req.body.patientId,
-        role: 'patient'
-      });
-
-      if (!patient) {
-        return res.status(404).json({ message: 'Patient not found' });
-      }
-      patientId = patient._id;
-    } else if (req.user.role === 'receptionist' && !req.body.patientId) {
-      return res.status(400).json({
-        message: 'Patient ID is required for receptionist upload'
-      });
-    }
-
-    // Cloudinary data
-    const imageUrl = req.file.path;
-    const publicId = req.file.filename;
-
-    // 1. Default container
-    let analysisResult = {};
-
-    // 2. Call local AI service (Gatekeeper + Classifier)
-    try {
-      const aiResponse = await axios.post(
-        `${AI_SERVICE_URL}/analyze`,
-        { image_url: imageUrl },
-        { timeout: 30000 }
-      );
-      // Will contain { status: 'rejected'|'accepted', gatekeeper: {...}, classifier?: {...} }
-      analysisResult = aiResponse.data;
-    } catch (aiError) {
-      console.error('AI service call failed:', aiError.response?.data || aiError.message);
-      analysisResult = { 
-        status: 'error', 
-        error: 'AI analysis unavailable', 
-        details: aiError.message 
-      };
-    }
-
-    // 3. Check if the AI explicitly rejected the image
-    if (analysisResult.status === 'rejected') {
-      // Clean up the image from Cloudinary since it's rejected
-      if (publicId) {
-        cloudinary.uploader.destroy(publicId).catch(err => console.error("Cloudinary cleanup error:", err));
-      }
-      
-      // Return the rejection immediately without saving to the database
-      return res.status(200).json({
-        analysisResult: analysisResult,
-        message: 'Image rejected by AI gatekeeper'
-      });
-    }
-
-    // 4. Save to database for accepted or pending/error images
-    const skinImage = new SkinImage({
-      user: patientId,
-      imageUrl: imageUrl,
-      publicId: publicId,
-      analysisResult: analysisResult
+    const request = await SupplyRequest.create({
+      staff: req.user._id,
+      itemName,
+      quantity,
+      notes: notes || ''
     });
-
-    await skinImage.save();
-
-    res.status(201).json(skinImage);
-
+    res.status(201).json(request);
   } catch (error) {
-    console.error("UPLOAD ERROR:", error);
-    res.status(500).json({ message: error.message });
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Get all images for logged-in user
-const getUserSkinImages = async (req, res) => {
+// @desc    Get all requests for logged-in staff
+// @route   GET /api/supply-requests/my
+// @access  Private (cleaningStaff)
+const getMySupplyRequests = async (req, res) => {
   try {
-    const images = await SkinImage
-      .find({ user: req.user._id })
+    const requests = await SupplyRequest.find({ staff: req.user._id })
       .sort({ createdAt: -1 });
-
-    res.json(images);
+    res.json(requests);
   } catch (error) {
-    console.error("FETCH ERROR:", error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Get single image by ID
-const getSkinImageById = async (req, res) => {
+// @desc    Get all supply requests (admin only)
+// @route   GET /api/supply-requests
+// @access  Private (admin)
+const getAllSupplyRequests = async (req, res) => {
   try {
-    const image = await SkinImage.findById(req.params.id);
-
-    if (!image) {
-      return res.status(404).json({ message: "Image not found" });
-    }
-
-    if (image.user.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "Not authorized" });
-    }
-
-    res.json(image);
+    const requests = await SupplyRequest.find({})
+      .populate('staff', 'name email')
+      .sort({ createdAt: -1 });
+    res.json(requests);
   } catch (error) {
-    console.error("GET IMAGE ERROR:", error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Delete image
-const deleteSkinImage = async (req, res) => {
+// @desc    Update request status (admin only)
+// @route   PUT /api/supply-requests/:id
+// @access  Private (admin)
+const updateSupplyRequestStatus = async (req, res) => {
   try {
-    const image = await SkinImage.findById(req.params.id);
-
-    if (!image) {
-      return res.status(404).json({ message: "Image not found" });
+    const { status } = req.body;
+    if (!['pending', 'approved', 'delivered'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
     }
+    const request = await SupplyRequest.findById(req.params.id);
+    if (!request) return res.status(404).json({ message: 'Request not found' });
 
-    if (image.user.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "Not authorized" });
-    }
+    request.status = status;
+    if (status === 'approved') request.approvedAt = new Date();
+    if (status === 'delivered') request.deliveredAt = new Date();
 
-    // Delete from Cloudinary
-    if (image.publicId) {
-      await cloudinary.uploader.destroy(image.publicId);
-    }
-
-    await image.deleteOne();
-
-    res.json({ message: "Image deleted successfully" });
+    await request.save();
+    res.json(request);
   } catch (error) {
-    console.error("DELETE ERROR:", error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
 module.exports = {
-  uploadSkinImage,
-  getUserSkinImages,
-  getSkinImageById,
-  deleteSkinImage
+  createSupplyRequest,
+  getMySupplyRequests,
+  getAllSupplyRequests,
+  updateSupplyRequestStatus
 };
