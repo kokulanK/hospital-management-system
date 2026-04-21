@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from './DashboardLayout';
 import api from '../../api/axios';
-import { FaBox, FaPlus, FaCheckCircle, FaTimesCircle, FaClock, FaEdit } from 'react-icons/fa';
+import { FaBox, FaPlus, FaCheckCircle, FaTimesCircle, FaClock, FaEdit } from 'react-icons/fa'; // ← added FaEdit
 
 export default function SupplyRequests() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingRequest, setEditingRequest] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);    // ← new
+  const [editingRequest, setEditingRequest] = useState(null);   // ← new
   const [formData, setFormData] = useState({
     itemName: '',
     quantity: 1,
@@ -87,26 +87,10 @@ export default function SupplyRequests() {
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'pending':
-        return (
-          <span className="bg-amber-50 text-amber-600 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-            <FaClock /> Pending
-          </span>
-        );
-      case 'approved':
-        return (
-          <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-            <FaCheckCircle /> Approved
-          </span>
-        );
-      case 'delivered':
-        return (
-          <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-            <FaCheckCircle /> Delivered
-          </span>
-        );
-      default:
-        return null;
+      case 'pending': return <span className="bg-amber-50 text-amber-600 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1"><FaClock /> Pending</span>;
+      case 'approved': return <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1"><FaCheckCircle /> Approved</span>;
+      case 'delivered': return <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1"><FaCheckCircle /> Delivered</span>;
+      default: return null;
     }
   };
 
@@ -142,33 +126,21 @@ export default function SupplyRequests() {
           </div>
         </div>
 
-        {/* Toast Message */}
+        {/* Toast */}
         {message && (
-          <div
-            className={`flex items-center gap-3 p-4 rounded-xl border ${
-              msgType === 'success'
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                : 'bg-red-50 border-red-200 text-red-600'
-            }`}
-          >
-            {msgType === 'success' ? (
-              <FaCheckCircle className="text-emerald-500" />
-            ) : (
-              <FaTimesCircle className="text-red-400" />
-            )}
+          <div className={`flex items-center gap-3 p-4 rounded-xl border ${
+            msgType === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-600'
+          }`}>
+            {msgType === 'success' ? <FaCheckCircle className="text-emerald-500" /> : <FaTimesCircle className="text-red-400" />}
             <p className="text-sm font-medium">{msgText}</p>
-            <button onClick={() => setMessage('')} className="ml-auto text-gray-400 hover:text-gray-600">
-              &times;
-            </button>
+            <button onClick={() => setMessage('')} className="ml-auto text-gray-400 hover:text-gray-600">&times;</button>
           </div>
         )}
 
         {/* Requests List */}
         {loading ? (
           <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />
-            ))}
+            {[1,2,3].map(i => <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />)}
           </div>
         ) : requests.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center">
@@ -177,11 +149,8 @@ export default function SupplyRequests() {
           </div>
         ) : (
           <div className="space-y-4">
-            {requests.map((req) => (
-              <div
-                key={req._id}
-                className="request-card bg-white rounded-2xl border border-gray-100 shadow-sm p-5"
-              >
+            {requests.map(req => (
+              <div key={req._id} className="request-card bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                 <div className="flex items-start justify-between flex-wrap gap-3">
                   <div>
                     <p className="font-semibold text-gray-800">{req.itemName}</p>
@@ -193,6 +162,7 @@ export default function SupplyRequests() {
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     {getStatusBadge(req.status)}
+                    {/* EDIT BUTTON for pending requests */}
                     {req.status === 'pending' && (
                       <button
                         onClick={() => openEditModal(req)}
