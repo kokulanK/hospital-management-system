@@ -19,6 +19,9 @@ export default function CleaningTasks() {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Get today's date in YYYY-MM-DD format for min attribute and validation
+  const today = new Date().toISOString().split('T')[0];
+
   useEffect(() => {
     fetchTasks();
     fetchStaff();
@@ -49,7 +52,7 @@ export default function CleaningTasks() {
     setFormData({
       assignedTo: '',
       area: '',
-      date: new Date().toISOString().split('T')[0],
+      date: today, // Default to today
       description: '',
       status: 'pending'
     });
@@ -76,6 +79,22 @@ export default function CleaningTasks() {
     e.preventDefault();
     setSubmitting(true);
     setMessage('');
+
+    // Client-side validation: prevent past dates for new tasks
+    if (!editingTask && formData.date < today) {
+      setMessage('error:Cannot assign a task to a past date.');
+      setSubmitting(false);
+      return;
+    }
+
+    // Optional: also prevent editing a task to a past date
+    // Uncomment the lines below to enable this stricter validation
+    // if (editingTask && formData.date < today) {
+    //   setMessage('error:Cannot change task date to a past date.');
+    //   setSubmitting(false);
+    //   return;
+    // }
+
     try {
       if (editingTask) {
         await api.put(`/cleaning-tasks/${editingTask._id}`, formData);
@@ -268,6 +287,7 @@ export default function CleaningTasks() {
                   name="date"
                   value={formData.date}
                   onChange={handleInputChange}
+                  min={today} // Prevent selection of past dates
                   className="w-full px-4 py-2 border border-gray-200 rounded-xl"
                   required
                 />
