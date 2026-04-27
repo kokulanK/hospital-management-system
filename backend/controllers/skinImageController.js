@@ -1,80 +1,129 @@
-const SupplyRequest = require('../models/SupplyRequest');
+const SkinImage = require('../models/SkinImage');
+const User = require('../models/User');
+const cloudinary = require('../config/cloudinary');
 
-// @desc    Create a supply request (cleaning staff only)
-// @route   POST /api/supply-requests
-// @access  Private (cleaningStaff)
-const createSupplyRequest = async (req, res) => {
+// Upload new image
+const uploadSkinImage = async (req, res) => {
   try {
-    const { itemName, quantity, notes } = req.body;
-    if (!itemName || !quantity) {
-      return res.status(400).json({ message: 'Item name and quantity are required' });
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
     }
-    const request = await SupplyRequest.create({
-      staff: req.user._id,
-      itemName,
-      quantity,
-      notes: notes || ''
+
+    let patientId = req.user._id;
+
+    // Receptionist uploading for patient
+    if (req.user.role === 'receptionist' && req.body.patientId) {
+      const patient = await User.findOne({
+        _id: req.body.patientId,
+        role: 'patient'
+      });
+
+      if (!patient) {
+        return res.status(404).json({ message: 'Patient not found' });
+      }
+
+      patientId = patient._id;
+    } 
+    else if (req.user.role === 'receptionist' && !req.body.patientId) {
+      return res.status(400).json({
+        message: 'Patient ID is required for receptionist upload'
+      });
+    }
+
+    // Cloudinary data
+    const imageUrl = req.file.path;
+    const publicId = req.file.filename;
+
+    const skinImage = new SkinImage({
+      user: patientId,
+      imageUrl: imageUrl,
+      publicId: publicId,
+      analysisResult: req.body.analysisResult || ""
     });
-    res.status(201).json(request);
+
+    await skinImage.save();
+
+    res.status(201).json(skinImage);
+
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("UPLOAD ERROR:", error); // shows real error
+    res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Get all requests for logged-in staff
-// @route   GET /api/supply-requests/my
-// @access  Private (cleaningStaff)
-const getMySupplyRequests = async (req, res) => {
+
+// Get all images for logged-in user
+const getUserSkinImages = async (req, res) => {
   try {
-    const requests = await SupplyRequest.find({ staff: req.user._id })
+
+    const images = await SkinImage
+      .find({ user: req.user._id })
       .sort({ createdAt: -1 });
-    res.json(requests);
+
+    res.json(images);
+
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.error("FETCH ERROR:", error);
+    res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Get all supply requests (admin only)
-// @route   GET /api/supply-requests
-// @access  Private (admin)
-const getAllSupplyRequests = async (req, res) => {
-  try {
-    const requests = await SupplyRequest.find({})
-      .populate('staff', 'name email')
-      .sort({ createdAt: -1 });
-    res.json(requests);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-};
 
-// @desc    Update request status (admin only)
-// @route   PUT /api/supply-requests/:id
-// @access  Private (admin)
-const updateSupplyRequestStatus = async (req, res) => {
+// Get single image by ID
+const getSkinImageById = async (req, res) => {
   try {
-    const { status } = req.body;
-    if (!['pending', 'approved', 'delivered'].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status' });
+
+    const image = await SkinImage.findById(req.params.id);
+
+    if (!image) {
+      return res.status(404).json({ message: "Image not found" });
     }
-    const request = await SupplyRequest.findById(req.params.id);
-    if (!request) return res.status(404).json({ message: 'Request not found' });
 
-    request.status = status;
-    if (status === 'approved') request.approvedAt = new Date();
-    if (status === 'delivered') request.deliveredAt = new Date();
+    if (image.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
 
-    await request.save();
-    res.json(request);
+    res.json(image);
+
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.error("GET IMAGE ERROR:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+// Delete image
+const deleteSkinImage = async (req, res) => {
+  try {
+
+    const image = await SkinImage.findById(req.params.id);
+
+    if (!image) {
+      return res.status(404).json({ message: "Image not found" });
+    }
+
+    if (image.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    // Delete from Cloudinary
+    if (image.publicId) {
+      await cloudinary.uploader.destroy(image.publicId);
+    }
+
+    await image.deleteOne();
+
+    res.json({ message: "Image deleted successfully" });
+
+  } catch (error) {
+    console.error("DELETE ERROR:", error);
+    res.status(500).json({ message: error.message });
   }
 };
 
 module.exports = {
-  createSupplyRequest,
-  getMySupplyRequests,
-  getAllSupplyRequests,
-  updateSupplyRequestStatus
+  uploadSkinImage,
+  getUserSkinImages,
+  getSkinImageById,
+  deleteSkinImage
 };
