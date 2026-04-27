@@ -1,25 +1,23 @@
-const express = require("express");
-const { protect } = require("../middleware/authMiddleware");
-const upload = require("../middleware/uploadMiddleware");
-
+const express = require('express');
+const { protect } = require('../middleware/authMiddleware');
+const upload = require('../middleware/uploadMiddleware');
 const {
   uploadSkinImage,
   getUserSkinImages,
   getSkinImageById,
   deleteSkinImage
-} = require("../controllers/skinImageController");
+} = require('../controllers/skinImageController');
 
 const router = express.Router();
 
+// All routes require authentication
 router.use(protect);
 
-// GET all images of logged user
-router.route("/")
+router.route('/')
   .get(getUserSkinImages)
-  .post(upload.single("image"), uploadSkinImage);
+  .post(upload.single('image'), uploadSkinImage);
 
-// GET single image
-router.route("/:id")
+router.route('/:id')
   .get(getSkinImageById)
   .delete(deleteSkinImage);
 
