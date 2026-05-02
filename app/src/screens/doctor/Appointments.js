@@ -8,6 +8,7 @@ export default function DoctorAppointments() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
+  const [filterCategory, setFilterCategory] = useState('all');
 
   useEffect(() => {
     fetchAppointments();
@@ -73,10 +74,26 @@ export default function DoctorAppointments() {
 
   if (loading) return <ActivityIndicator size="large" color="#3b82f6" style={styles.loader} />;
 
+  const filteredAppointments = appointments.filter(a => filterCategory === 'all' || a.status === filterCategory);
+
   return (
     <View style={styles.container}>
+      <View style={styles.filterContainer}>
+        {['all', 'scheduled', 'completed', 'cancelled'].map(cat => (
+          <TouchableOpacity 
+            key={cat} 
+            style={[styles.filterBtn, filterCategory === cat && styles.filterBtnActive]}
+            onPress={() => setFilterCategory(cat)}
+          >
+            <Text style={[styles.filterText, filterCategory === cat && styles.filterTextActive]}>
+               {cat.charAt(0).toUpperCase() + cat.slice(1)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <FlatList
-        data={appointments}
+        data={filteredAppointments}
         keyExtractor={(item) => item._id}
         renderItem={renderItem}
         ListEmptyComponent={<Text style={styles.empty}>No appointments found.</Text>}
@@ -109,4 +126,9 @@ const styles = StyleSheet.create({
   completeBtn: { marginRight: 12 },
   cancelBtn: {},
   empty: { textAlign: 'center', color: '#9ca3af', marginTop: 40 },
+  filterContainer: { flexDirection: 'row', marginBottom: 16, justifyContent: 'space-around' },
+  filterBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20, backgroundColor: '#e5e7eb' },
+  filterBtnActive: { backgroundColor: '#3b82f6' },
+  filterText: { fontSize: 12, color: '#374151', fontWeight: 'bold' },
+  filterTextActive: { color: 'white' },
 });

@@ -1,0 +1,22 @@
+// vite.config.js
+import { defineConfig } from "file:///C:/Users/User/.gemini/antigravity/scratch/hospital-management-system/frontend/node_modules/vite/dist/node/index.js";
+import react from "file:///C:/Users/User/.gemini/antigravity/scratch/hospital-management-system/frontend/node_modules/@vitejs/plugin-react/dist/index.js";
+import tailwindcss from "file:///C:/Users/User/.gemini/antigravity/scratch/hospital-management-system/frontend/node_modules/@tailwindcss/vite/dist/index.mjs";
+var vite_config_default = defineConfig({
+  plugins: [
+    react(),
+    tailwindcss()
+  ],
+  // ✅ Allow access from devices on the same WiFi network
+  server: {
+    host: true,
+    // enables network access
+    port: 5173,
+    // default Vite port
+    strictPort: true
+  }
+});
+export {
+  vite_config_default as default
+};
+//# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsidml0ZS5jb25maWcuanMiXSwKICAic291cmNlc0NvbnRlbnQiOiBbImNvbnN0IF9fdml0ZV9pbmplY3RlZF9vcmlnaW5hbF9kaXJuYW1lID0gXCJDOlxcXFxVc2Vyc1xcXFxVc2VyXFxcXC5nZW1pbmlcXFxcYW50aWdyYXZpdHlcXFxcc2NyYXRjaFxcXFxob3NwaXRhbC1tYW5hZ2VtZW50LXN5c3RlbVxcXFxmcm9udGVuZFwiO2NvbnN0IF9fdml0ZV9pbmplY3RlZF9vcmlnaW5hbF9maWxlbmFtZSA9IFwiQzpcXFxcVXNlcnNcXFxcVXNlclxcXFwuZ2VtaW5pXFxcXGFudGlncmF2aXR5XFxcXHNjcmF0Y2hcXFxcaG9zcGl0YWwtbWFuYWdlbWVudC1zeXN0ZW1cXFxcZnJvbnRlbmRcXFxcdml0ZS5jb25maWcuanNcIjtjb25zdCBfX3ZpdGVfaW5qZWN0ZWRfb3JpZ2luYWxfaW1wb3J0X21ldGFfdXJsID0gXCJmaWxlOi8vL0M6L1VzZXJzL1VzZXIvLmdlbWluaS9hbnRpZ3Jhdml0eS9zY3JhdGNoL2hvc3BpdGFsLW1hbmFnZW1lbnQtc3lzdGVtL2Zyb250ZW5kL3ZpdGUuY29uZmlnLmpzXCI7aW1wb3J0IHsgZGVmaW5lQ29uZmlnIH0gZnJvbSBcInZpdGVcIjtcclxuaW1wb3J0IHJlYWN0IGZyb20gXCJAdml0ZWpzL3BsdWdpbi1yZWFjdFwiO1xyXG5pbXBvcnQgdGFpbHdpbmRjc3MgZnJvbSBcIkB0YWlsd2luZGNzcy92aXRlXCI7XHJcblxyXG5leHBvcnQgZGVmYXVsdCBkZWZpbmVDb25maWcoe1xyXG4gIHBsdWdpbnM6IFtcclxuICAgIHJlYWN0KCksXHJcbiAgICB0YWlsd2luZGNzcygpLFxyXG4gIF0sXHJcblxyXG4gIC8vIFx1MjcwNSBBbGxvdyBhY2Nlc3MgZnJvbSBkZXZpY2VzIG9uIHRoZSBzYW1lIFdpRmkgbmV0d29ya1xyXG4gIHNlcnZlcjoge1xyXG4gICAgaG9zdDogdHJ1ZSwgICAgICAgIC8vIGVuYWJsZXMgbmV0d29yayBhY2Nlc3NcclxuICAgIHBvcnQ6IDUxNzMsICAgICAgICAvLyBkZWZhdWx0IFZpdGUgcG9ydFxyXG4gICAgc3RyaWN0UG9ydDogdHJ1ZVxyXG4gIH1cclxufSk7Il0sCiAgIm1hcHBpbmdzIjogIjtBQUF5YSxTQUFTLG9CQUFvQjtBQUN0YyxPQUFPLFdBQVc7QUFDbEIsT0FBTyxpQkFBaUI7QUFFeEIsSUFBTyxzQkFBUSxhQUFhO0FBQUEsRUFDMUIsU0FBUztBQUFBLElBQ1AsTUFBTTtBQUFBLElBQ04sWUFBWTtBQUFBLEVBQ2Q7QUFBQTtBQUFBLEVBR0EsUUFBUTtBQUFBLElBQ04sTUFBTTtBQUFBO0FBQUEsSUFDTixNQUFNO0FBQUE7QUFBQSxJQUNOLFlBQVk7QUFBQSxFQUNkO0FBQ0YsQ0FBQzsiLAogICJuYW1lcyI6IFtdCn0K

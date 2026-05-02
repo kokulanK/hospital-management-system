@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Modal, TextInput, Alert, StyleSheet, ActivityIndicator, Image } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Modal, TextInput, Alert, StyleSheet, ActivityIndicator, Image, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import api from '../../api/axios';
 import { formatDate } from '../../utils/helpers';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,9 @@ export default function DoctorLabRequests() {
   const [modalVisible, setModalVisible] = useState(false);
   const [formData, setFormData] = useState({ patientId: '', testType: '', description: '' });
   const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchRequests();
@@ -37,6 +40,26 @@ export default function DoctorLabRequests() {
     }
   };
 
+  const openCreateModal = () => {
+    setEditingId(null);
+    setFormData({ patientId: '', testType: '', description: '' });
+    setIsDropdownVisible(false);
+    setSearchQuery('');
+    setModalVisible(true);
+  };
+
+  const openEditModal = (item) => {
+    setEditingId(item._id);
+    setFormData({ 
+      patientId: item.patient?._id || '', 
+      testType: item.testType || '', 
+      description: item.description || '' 
+    });
+    setIsDropdownVisible(false);
+    setSearchQuery('');
+    setModalVisible(true);
+  };
+
   const handleSubmit = async () => {
     if (!formData.patientId || !formData.testType) {
       Alert.alert('Error', 'Please select patient and test type');
@@ -44,16 +67,47 @@ export default function DoctorLabRequests() {
     }
     setSubmitting(true);
     try {
-      await api.post('/lab-requests', formData);
-      Alert.alert('Success', 'Lab request created');
+      if (editingId) {
+        await api.put(`/lab-requests/${editingId}`, formData);
+        Alert.alert('Success', 'Lab request updated');
+      } else {
+        await api.post('/lab-requests', formData);
+        Alert.alert('Success', 'Lab request created');
+      }
       setModalVisible(false);
       setFormData({ patientId: '', testType: '', description: '' });
+      setEditingId(null);
+      setIsDropdownVisible(false);
+      setSearchQuery('');
       fetchRequests();
     } catch (error) {
-      Alert.alert('Error', error.response?.data?.message || 'Creation failed');
+      Alert.alert('Error', error.response?.data?.message || 'Action failed');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleDelete = (id) => {
+    Alert.alert(
+      'Delete Request',
+      'Are you sure you want to delete this pending request?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete(`/lab-requests/${id}`);
+              Alert.alert('Success', 'Lab request deleted');
+              fetchRequests();
+            } catch (error) {
+              Alert.alert('Error', error.response?.data?.message || 'Failed to delete');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const renderItem = ({ item }) => (
@@ -68,9 +122,21 @@ export default function DoctorLabRequests() {
             <Text style={styles.accepted}>Accepted by: {item.acceptedBy.name} on {formatDate(item.acceptedAt)}</Text>
           )}
         </View>
-        <Text style={[styles.status, { color: item.status === 'pending' ? '#f59e0b' : item.status === 'accepted' ? '#3b82f6' : '#10b981' }]}>
-          {item.status.toUpperCase()}
-        </Text>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={[styles.status, { color: item.status === 'pending' ? '#f59e0b' : item.status === 'accepted' ? '#3b82f6' : '#10b981' }]}>
+            {item.status.toUpperCase()}
+          </Text>
+          {item.status === 'pending' && (
+            <View style={{ flexDirection: 'row', marginTop: 8 }}>
+              <TouchableOpacity onPress={() => openEditModal(item)} style={{ marginRight: 16 }}>
+                <Text style={{ color: '#3b82f6', fontWeight: 'bold' }}>EDIT</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleDelete(item._id)}>
+                <Text style={{ color: '#ef4444', fontWeight: 'bold' }}>DELETE</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </View>
       {item.status === 'completed' && (
         <>
@@ -85,44 +151,74 @@ export default function DoctorLabRequests() {
 
   if (loading) return <ActivityIndicator size="large" color="#3b82f6" style={styles.loader} />;
 
+  const filteredPatients = patients.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const selectedPatientName = formData.patientId 
+    ? patients.find(p => p._id === formData.patientId)?.name || 'Select Patient'
+    : 'Select Patient';
+
   return (
-    <View style={styles.container}>
-      <TouchableOpacity style={styles.createBtn} onPress={() => setModalVisible(true)}>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={styles.container}>
+        <TouchableOpacity style={styles.createBtn} onPress={openCreateModal}>
         <Ionicons name="add" size={24} color="white" />
         <Text style={styles.createBtnText}>New Lab Request</Text>
       </TouchableOpacity>
 
-      <FlatList
-        data={requests}
-        keyExtractor={(item) => item._id}
-        renderItem={renderItem}
-        ListEmptyComponent={<Text style={styles.empty}>No lab requests.</Text>}
-      />
+        <FlatList
+          data={requests}
+          keyboardShouldPersistTaps="handled"
+          keyExtractor={(item) => item._id}
+          renderItem={renderItem}
+          ListEmptyComponent={<Text style={styles.empty}>No lab requests.</Text>}
+        />
 
       <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Create Lab Request</Text>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPressOut={Keyboard.dismiss}>
+          <TouchableWithoutFeedback>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>{editingId ? 'Edit Lab Request' : 'Create Lab Request'}</Text>
             <View style={styles.selectRow}>
               <Text style={styles.label}>Patient:</Text>
-              <FlatList
-                horizontal
-                data={patients}
-                keyExtractor={(item) => item._id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    onPress={() => setFormData({ ...formData, patientId: item._id })}
-                    style={[
-                      styles.patientOption,
-                      formData.patientId === item._id && styles.patientOptionActive,
-                    ]}
-                  >
-                    <Text style={[styles.patientText, formData.patientId === item._id && styles.patientTextActive]}>
-                      {item.name}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              />
+              <TouchableOpacity
+                style={styles.dropdownBtn}
+                onPress={() => setIsDropdownVisible(!isDropdownVisible)}
+              >
+                <Text style={styles.dropdownBtnText}>{selectedPatientName}</Text>
+                <Ionicons name={isDropdownVisible ? "chevron-up" : "chevron-down"} size={20} color="#6b7280" />
+              </TouchableOpacity>
+              
+              {isDropdownVisible && (
+                <View style={styles.dropdownContainer}>
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search patient name..."
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                  />
+                  <FlatList
+                    data={filteredPatients}
+                    keyboardShouldPersistTaps="handled"
+                    keyExtractor={(item) => item._id}
+                    style={{ maxHeight: 150 }}
+                    nestedScrollEnabled
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={[styles.dropdownItem, formData.patientId === item._id && styles.dropdownItemActive]}
+                        onPress={() => {
+                          setFormData({ ...formData, patientId: item._id });
+                          setIsDropdownVisible(false);
+                          setSearchQuery('');
+                        }}
+                      >
+                        <Text style={[styles.dropdownItemText, formData.patientId === item._id && styles.dropdownItemTextActive]}>
+                          {item.name}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    ListEmptyComponent={<Text style={styles.emptySearch}>No patients match your search.</Text>}
+                  />
+                </View>
+              )}
             </View>
             <TextInput
               style={styles.input}
@@ -142,13 +238,15 @@ export default function DoctorLabRequests() {
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.modalBtn, styles.submitBtn]} onPress={handleSubmit} disabled={submitting}>
-                <Text style={styles.submitBtnText}>{submitting ? 'Creating...' : 'Create'}</Text>
+                <Text style={styles.submitBtnText}>{submitting ? (editingId ? 'Updating...' : 'Creating...') : (editingId ? 'Update' : 'Create')}</Text>
               </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        </View>
+          </TouchableWithoutFeedback>
+        </TouchableOpacity>
       </Modal>
     </View>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -204,4 +302,13 @@ const styles = StyleSheet.create({
   cancelBtnText: { color: '#374151', fontWeight: 'bold' },
   submitBtn: { backgroundColor: '#3b82f6', marginLeft: 8 },
   submitBtnText: { color: 'white', fontWeight: 'bold' },
+  dropdownBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, padding: 12, backgroundColor: 'white' },
+  dropdownBtnText: { fontSize: 16, color: '#1f2937' },
+  dropdownContainer: { marginTop: 8, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, padding: 8, backgroundColor: '#f9fafb' },
+  searchInput: { borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, padding: 8, marginBottom: 8, backgroundColor: 'white' },
+  dropdownItem: { paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
+  dropdownItemActive: { backgroundColor: '#eff6ff' },
+  dropdownItemText: { fontSize: 14, color: '#374151' },
+  dropdownItemTextActive: { color: '#3b82f6', fontWeight: 'bold' },
+  emptySearch: { textAlign: 'center', color: '#9ca3af', marginVertical: 12 },
 });
