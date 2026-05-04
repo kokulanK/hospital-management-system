@@ -283,8 +283,10 @@ export default function AIScanner() {
       type: imageFile.type,
     });
     try {
+      // Increase timeout to 30 seconds to prevent premature timeout on slower networks
       const { data } = await api.post('/skin-images', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000, // 30 seconds
       });
       const analysis = data.analysisResult;
       setResult(processAnalysisData(analysis));
@@ -292,7 +294,22 @@ export default function AIScanner() {
       setImageFile(null);
       fetchPastScans();
     } catch (error) {
-      Alert.alert('Error', 'Failed to upload image for analysis.');
+      // Handle timeout specifically
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        Alert.alert(
+          'Upload Timeout',
+          'The server took too long to respond. Please check your internet connection and try again.'
+        );
+      } else if (error.response) {
+        // Server responded with error status
+        Alert.alert('Error', `Server error: ${error.response.status}`);
+      } else if (error.request) {
+        // Request was made but no response received
+        Alert.alert('Network Error', 'Could not connect to the server. Please check your network.');
+      } else {
+        Alert.alert('Error', 'Failed to upload image for analysis.');
+      }
+      console.error('Upload error:', error);
     } finally {
       setLoading(false);
     }

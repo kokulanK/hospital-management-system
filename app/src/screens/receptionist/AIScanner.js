@@ -257,6 +257,7 @@ export default function ReceptionistAIScanner() {
     try {
       const { data } = await api.post('/skin-images', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000, // 30 seconds timeout
       });
       const analysis = data.analysisResult;
       setResult(processAnalysisData(analysis));
@@ -266,7 +267,16 @@ export default function ReceptionistAIScanner() {
       setImageFile(null);
     } catch (error) {
       console.error('Upload failed', error);
-      setMessage('error:Upload failed. Please try again.');
+      // Handle timeout specifically
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        setMessage('error:The server took too long to respond. Please check your internet connection and try again.');
+      } else if (error.response) {
+        setMessage(`error:Server error: ${error.response.status}`);
+      } else if (error.request) {
+        setMessage('error:Could not connect to the server. Please check your network.');
+      } else {
+        setMessage('error:Upload failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
