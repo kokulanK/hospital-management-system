@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from './DashboardLayout';
 import api from '../../api/axios';
-import { FaFlask, FaPlus, FaFileAlt, FaCheckCircle, FaClock, FaTimesCircle, FaDownload, FaEdit, FaTrash } from 'react-icons/fa';
+import { FaFlask, FaPlus, FaFileAlt, FaCheckCircle, FaClock, FaTimesCircle, FaDownload, FaEdit, FaTrash, FaRobot, FaSpinner } from 'react-icons/fa';
 import { getCorrectCloudinaryUrl, getPdfViewerUrl } from '../../utils/cloudinary';
+import { generateGroqResponse } from '../../utils/groqApi';
 
 export default function DoctorLabRequests() {
   const [requests, setRequests] = useState([]);
@@ -16,6 +17,8 @@ export default function DoctorLabRequests() {
   });
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // AI State
+  const [aiLoading, setAiLoading] = useState(false);
   // Edit state
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({ testType: '', description: '' });
@@ -53,6 +56,23 @@ export default function DoctorLabRequests() {
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSuggestTests = async () => {
+    if (!formData.description.trim() || aiLoading) {
+      alert("Please enter a suspected condition in the Description field first.");
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const prompt = "You are an AI Lab Assistant. Based on the following patient symptoms or suspected condition, suggest the standard lab test panels (comma separated, very concise). For example: 'CBC, Lipid Panel, TSH'. Return ONLY the test names.";
+      const res = await generateGroqResponse(prompt, formData.description);
+      setFormData(prev => ({ ...prev, testType: res.trim() }));
+    } catch (err) {
+      alert("Error generating suggestions.");
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -302,28 +322,41 @@ export default function DoctorLabRequests() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Test Type</label>
-                <input
-                  type="text"
-                  name="testType"
-                  value={formData.testType}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-xl"
-                  placeholder="e.g., Blood Test, X-Ray"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description (optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                  Condition / Description
+                  <span className="text-xs text-blue-500 font-normal ml-auto">(Required for AI)</span>
+                </label>
                 <textarea
                   name="description"
                   value={formData.description}
                   onChange={handleInputChange}
                   rows="3"
                   className="w-full px-4 py-2 border border-gray-200 rounded-xl"
-                  placeholder="Additional details..."
+                  placeholder="Suspected condition or symptoms..."
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Test Type</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    name="testType"
+                    value={formData.testType}
+                    onChange={handleInputChange}
+                    className="flex-1 px-4 py-2 border border-gray-200 rounded-xl"
+                    placeholder="e.g., CBC, Lipid Panel"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSuggestTests}
+                    disabled={aiLoading}
+                    className="bg-blue-100 text-blue-700 px-4 rounded-xl text-sm font-medium hover:bg-blue-200 transition flex items-center gap-1 disabled:opacity-50"
+                  >
+                    {aiLoading ? <FaSpinner className="animate-spin" /> : <><FaRobot /> AI Suggest</>}
+                  </button>
+                </div>
               </div>
 
               <div className="flex gap-3 pt-2">

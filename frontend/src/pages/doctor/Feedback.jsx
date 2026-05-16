@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from "./DashboardLayout";
 import api from '../../api/axios';
-import { FaStar, FaCalendarAlt, FaComment, FaArrowRight } from 'react-icons/fa';
+import { FaStar, FaCalendarAlt, FaComment, FaArrowRight, FaRobot, FaSpinner, FaCopy } from 'react-icons/fa';
+import { generateGroqResponse } from '../../utils/groqApi';
 
 export default function DoctorFeedback() {
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState('');
+
+  // AI Responder State
+  const [generatingId, setGeneratingId] = useState(null);
+  const [generatedResponses, setGeneratedResponses] = useState({});
 
   useEffect(() => { fetchFeedbacks(); }, []);
 
@@ -16,6 +21,28 @@ export default function DoctorFeedback() {
       setFeedbacks(data);
     } catch (error) { console.error(error); }
     finally { setLoading(false); }
+  };
+
+  const handleGenerateResponse = async (fb) => {
+    if (generatingId) return;
+    setGeneratingId(fb._id);
+    try {
+      const prompt = `You are a professional medical assistant helping a doctor draft a response to a patient review. 
+The patient gave a rating of ${fb.rating} out of 5. 
+The patient's comment is: "${fb.comment || 'No comment provided.'}"
+Write a highly empathetic, professional, HIPAA-compliant response. Keep it brief and polite. Do not include patient names.`;
+      const result = await generateGroqResponse(prompt, "Draft a professional response.");
+      setGeneratedResponses(prev => ({ ...prev, [fb._id]: result }));
+    } catch (error) {
+      alert("Error connecting to AI Responder.");
+    } finally {
+      setGeneratingId(null);
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    alert('Response copied to clipboard!');
   };
 
   const avgRating = feedbacks.length
@@ -43,6 +70,8 @@ export default function DoctorFeedback() {
         .fb-card { transition:transform 0.2s,box-shadow 0.2s; }
         .fb-card:hover { transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.08); }
         .bar-fill { transition:width 0.6s ease; }
+        .btn-ai-draft { background:#eff6ff;color:#2563eb; transition:all 0.15s; }
+        .btn-ai-draft:hover { background:#dbeafe; }
         .fade-in{animation:fadeUp 0.4s ease forwards;opacity:0;}
         .fade-in:nth-child(1){animation-delay:0.05s}.fade-in:nth-child(2){animation-delay:0.12s}.fade-in:nth-child(3){animation-delay:0.19s}
         @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
@@ -189,17 +218,42 @@ export default function DoctorFeedback() {
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <div className="flex gap-0.5">
-                          {[1,2,3,4,5].map(n=><FaStar key={n} className={`text-sm ${n<=fb.rating?'text-amber-400':'text-gray-200'}`}/>)}
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex gap-0.5">
+                            {[1,2,3,4,5].map(n=><FaStar key={n} className={`text-sm ${n<=fb.rating?'text-amber-400':'text-gray-200'}`}/>)}
+                          </div>
+                          <span className="text-xs font-medium text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">{ratingLabels[fb.rating]}</span>
                         </div>
-                        <span className="text-xs font-medium text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">{ratingLabels[fb.rating]}</span>
+                        <button
+                          onClick={() => handleGenerateResponse(fb)}
+                          disabled={generatingId === fb._id}
+                          className="btn-ai-draft flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50 border border-blue-100"
+                        >
+                          {generatingId === fb._id ? <FaSpinner className="animate-spin" /> : <FaRobot />}
+                          AI Draft Response
+                        </button>
                       </div>
                     </div>
                     {fb.comment && (
                       <p className="mt-3 text-sm text-gray-500 leading-relaxed bg-gray-50 rounded-xl px-4 py-3 border border-gray-100 italic">
                         "{fb.comment}"
                       </p>
+                    )}
+                    
+                    {generatedResponses[fb._id] && (
+                      <div className="mt-3 bg-blue-50/50 border border-blue-100 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-blue-700 flex items-center gap-1"><FaRobot /> AI Suggested Response</span>
+                          <button 
+                            onClick={() => copyToClipboard(generatedResponses[fb._id])}
+                            className="text-blue-600 hover:text-blue-800 text-xs font-medium flex items-center gap-1 bg-white px-2 py-1 rounded shadow-sm"
+                          >
+                            <FaCopy /> Copy
+                          </button>
+                        </div>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{generatedResponses[fb._id]}</p>
+                      </div>
                     )}
                   </div>
                 ))}

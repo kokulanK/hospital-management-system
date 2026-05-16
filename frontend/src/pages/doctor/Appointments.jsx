@@ -1,13 +1,21 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from "./DashboardLayout";
 import api from '../../api/axios';
-import { FaCalendarAlt, FaClock, FaCheckCircle, FaTimesCircle, FaUserInjured, FaArrowRight } from 'react-icons/fa';
+import { FaCalendarAlt, FaClock, FaCheckCircle, FaTimesCircle, FaUserInjured, FaArrowRight, FaRobot, FaSpinner, FaCopy } from 'react-icons/fa';
+import { generateGroqResponse } from '../../utils/groqApi';
 
 export default function DoctorAppointments() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [updatingId, setUpdatingId] = useState(null);
+
+  // AI Scribe State
+  const [scribeModalOpen, setScribeModalOpen] = useState(false);
+  const [selectedApt, setSelectedApt] = useState(null);
+  const [shorthand, setShorthand] = useState('');
+  const [soapNote, setSoapNote] = useState('');
+  const [scribeLoading, setScribeLoading] = useState(false);
 
   useEffect(() => { fetchAppointments(); }, []);
 
@@ -26,6 +34,34 @@ export default function DoctorAppointments() {
       fetchAppointments();
     } catch { alert('Failed to update status'); }
     finally { setUpdatingId(null); }
+  };
+
+  const openScribe = (apt) => {
+    setSelectedApt(apt);
+    setShorthand('');
+    setSoapNote('');
+    setScribeModalOpen(true);
+  };
+
+  const handleGenerateSoap = async () => {
+    if (!shorthand.trim() || scribeLoading) return;
+    setScribeLoading(true);
+    try {
+      const prompt = `You are an expert AI Medical Scribe. The doctor has provided shorthand notes for a patient encounter. 
+Convert these rough notes into a highly professional, well-formatted, and accurate SOAP Note (Subjective, Objective, Assessment, Plan).
+Ensure the tone is strictly clinical and HIPAA-compliant. Only output the SOAP note.`;
+      const result = await generateGroqResponse(prompt, shorthand);
+      setSoapNote(result);
+    } catch (error) {
+      alert("Error connecting to AI Scribe.");
+    } finally {
+      setScribeLoading(false);
+    }
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(soapNote);
+    alert('SOAP Note copied to clipboard!');
   };
 
   const filtered = filter === 'all' ? appointments
@@ -61,11 +97,15 @@ export default function DoctorAppointments() {
         .btn-complete:hover { background:#bbf7d0; }
         .btn-cancel { background:#fee2e2;color:#dc2626; }
         .btn-cancel:hover { background:#fecaca; }
+        .btn-scribe { background:#eff6ff;color:#2563eb; }
+        .btn-scribe:hover { background:#dbeafe; }
         .skeleton { background:linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.4s infinite; }
         @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
         .fade-in{animation:fadeUp 0.4s ease forwards;opacity:0;}
         .fade-in:nth-child(1){animation-delay:0.05s}.fade-in:nth-child(2){animation-delay:0.1s}.fade-in:nth-child(3){animation-delay:0.15s}.fade-in:nth-child(4){animation-delay:0.2s}
         @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+        .modal-animation { animation: slideUp 0.25s ease; }
+        @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
       `}</style>
 
       <div className="appts-root max-w-4xl mx-auto space-y-6 pb-10">
@@ -141,6 +181,12 @@ export default function DoctorAppointments() {
                     <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
                       {cfg.label}
                     </span>
+                    <button
+                      onClick={() => openScribe(apt)}
+                      className="action-btn btn-scribe flex items-center gap-1"
+                    >
+                      <FaRobot className="text-xs" /> AI Scribe
+                    </button>
                     {apt.status === 'scheduled' && (
                       <div className="flex gap-2">
                         <button
@@ -166,6 +212,63 @@ export default function DoctorAppointments() {
           </div>
         )}
       </div>
+
+      {/* AI Scribe Modal */}
+      {scribeModalOpen && selectedApt && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="modal-animation bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex justify-between items-center">
+              <div>
+                <h2 className="display-font text-xl font-semibold flex items-center gap-2">
+                  <FaRobot /> AI Medical Scribe
+                </h2>
+                <p className="text-blue-100 text-sm opacity-90 mt-1">Generating SOAP Note for {selectedApt.patient?.name}</p>
+              </div>
+              <button onClick={() => setScribeModalOpen(false)} className="text-white/80 hover:text-white transition">
+                <FaTimesCircle className="text-xl" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Doctor's Shorthand Notes</label>
+                <textarea
+                  value={shorthand}
+                  onChange={(e) => setShorthand(e.target.value)}
+                  placeholder="e.g., 45yo male, 3 days headache, bp 140/90, gave advil, rest"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  rows="4"
+                />
+                <button
+                  onClick={handleGenerateSoap}
+                  disabled={!shorthand.trim() || scribeLoading}
+                  className="mt-3 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2"
+                >
+                  {scribeLoading ? <FaSpinner className="animate-spin" /> : <FaRobot />}
+                  Generate SOAP Note
+                </button>
+              </div>
+
+              {soapNote && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-emerald-700">Generated SOAP Note</label>
+                    <button 
+                      onClick={copyToClipboard}
+                      className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium bg-emerald-50 px-3 py-1 rounded-lg"
+                    >
+                      <FaCopy /> Copy
+                    </button>
+                  </div>
+                  <div className="bg-emerald-50/50 rounded-xl p-4 border border-emerald-100 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed prose prose-sm">
+                    {soapNote}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

@@ -3,7 +3,8 @@ import DashboardLayout from "./DashboardLayout";
 import api from '../../api/axios';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { FaCalendarAlt, FaClock, FaStar, FaArrowRight, FaCheckCircle, FaUserInjured } from 'react-icons/fa';
+import { FaCalendarAlt, FaClock, FaStar, FaArrowRight, FaCheckCircle, FaUserInjured, FaRobot, FaSpinner } from 'react-icons/fa';
+import { generateGroqResponse } from '../../utils/groqApi';
 
 export default function DashboardDoctor() {
   const { user } = useAuth();
@@ -11,6 +12,11 @@ export default function DashboardDoctor() {
   const [appointments, setAppointments] = useState([]);
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // AI Triage State
+  const [symptoms, setSymptoms] = useState('');
+  const [triageLoading, setTriageLoading] = useState(false);
+  const [triageResult, setTriageResult] = useState('');
 
   const firstName = user?.name?.split(' ')[0] || 'Doctor';
 
@@ -35,6 +41,22 @@ export default function DashboardDoctor() {
     };
     fetchData();
   }, []);
+
+  const handleTriage = async (e) => {
+    e.preventDefault();
+    if (!symptoms.trim() || triageLoading) return;
+    setTriageLoading(true);
+    setTriageResult('');
+    try {
+      const prompt = "You are an AI Clinical Triage Assistant. Based on the following symptoms, provide a structured differential diagnosis list (most likely to least likely) and recommend 2-3 first-line investigations. Keep it very concise, using bullet points.";
+      const res = await generateGroqResponse(prompt, symptoms);
+      setTriageResult(res);
+    } catch (err) {
+      setTriageResult("Error connecting to clinical database.");
+    } finally {
+      setTriageLoading(false);
+    }
+  };
 
   const upcoming = appointments
     .filter(a => a.status === 'scheduled' && new Date(a.startTime || a.date) >= new Date())
@@ -144,6 +166,40 @@ export default function DashboardDoctor() {
                 <div className="mt-4 flex items-center text-white/60 text-xs gap-1">Go <FaArrowRight className="text-[10px]" /></div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Quick AI Triage (Second Opinion) */}
+        <div className="bg-white rounded-2xl border border-blue-100 shadow-sm overflow-hidden flex flex-col md:flex-row">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 md:w-1/3 flex flex-col justify-center border-b md:border-b-0 md:border-r border-blue-100">
+            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-600 mb-4 shadow-sm">
+              <FaRobot className="text-xl" />
+            </div>
+            <h2 className="display-font text-lg font-semibold text-gray-800 mb-1">Quick AI Triage</h2>
+            <p className="text-sm text-gray-500">Enter patient symptoms to instantly generate differential diagnoses and recommended first-line investigations.</p>
+          </div>
+          <div className="p-6 md:w-2/3 flex flex-col gap-4">
+            <form onSubmit={handleTriage} className="flex gap-2">
+              <input
+                type="text"
+                placeholder="e.g., 45yo male, chest pain radiating to left arm, sweating..."
+                value={symptoms}
+                onChange={(e) => setSymptoms(e.target.value)}
+                className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              />
+              <button
+                type="submit"
+                disabled={triageLoading || !symptoms.trim()}
+                className="bg-blue-600 text-white px-5 py-3 rounded-xl text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2"
+              >
+                {triageLoading ? <FaSpinner className="animate-spin" /> : 'Triage'}
+              </button>
+            </form>
+            {triageResult && (
+              <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-100 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed prose prose-sm max-h-64 overflow-y-auto">
+                {triageResult}
+              </div>
+            )}
           </div>
         </div>
 

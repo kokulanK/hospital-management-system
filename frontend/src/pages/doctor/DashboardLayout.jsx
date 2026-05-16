@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import {
   FaHome, FaClock, FaCalendarAlt, FaStar, FaUser, FaFlask, FaSignOutAlt
 } from 'react-icons/fa';
+import AIDoctorAssistant from '../../components/AIDoctorAssistant';
 
 export default function DashboardLayout({ children, activePage }) {
   const { user, logout } = useAuth();
@@ -130,6 +131,9 @@ export default function DashboardLayout({ children, activePage }) {
       <main className="doc-main flex-1 ml-20 p-8 min-h-screen" style={{ background: '#f8faff' }}>
         {children}
       </main>
+
+      {/* AI Assistant Chatbot */}
+      <AIDoctorAssistant />
     </div>
   );
 }
