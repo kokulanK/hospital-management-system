@@ -7,6 +7,8 @@ import {
   FaDownload, FaEdit, FaTrash, FaSave, FaTimes, FaSpinner, FaFilePdf
 } from 'react-icons/fa';
 import { getCorrectCloudinaryUrl, getPdfViewerUrl } from '../../utils/cloudinary';
+import { generateGroqResponse } from '../../utils/groqApi';
+import { FaRobot, FaLightbulb } from 'react-icons/fa';
 
 export default function LabRequests() {
   const { user } = useAuth();
@@ -23,6 +25,15 @@ export default function LabRequests() {
   const [editResultFile, setEditResultFile] = useState(null);
   const [editTestType, setEditTestType] = useState('');
   const [editDescription, setEditDescription] = useState('');
+
+  // AI Protocol State
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiTestType, setAiTestType] = useState('');
+  const [aiGuide, setAiGuide] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+
+  // AI Template State
+  const [templateLoadingId, setTemplateLoadingId] = useState(null);
 
   useEffect(() => {
     fetchRequests();
@@ -122,6 +133,35 @@ export default function LabRequests() {
       setMessage('success:Request deleted successfully');
     } catch (err) {
       setMessage('error:' + (err.response?.data?.message || 'Delete failed'));
+    }
+  };
+
+  const handleGetAiProtocol = async (testType) => {
+    setAiTestType(testType);
+    setShowAiModal(true);
+    setAiLoading(true);
+    setAiGuide('');
+    try {
+      const systemPrompt = "You are an AI Clinical Laboratory Expert. Provide a brief, standard laboratory protocol for performing the requested test, including necessary reagents, equipment, and critical safety/biohazard precautions. Use markdown formatting with bullet points. Keep it professional and concise.";
+      const response = await generateGroqResponse(systemPrompt, `Provide the SOP for: ${testType}`);
+      setAiGuide(response);
+    } catch (err) {
+      setAiGuide("Failed to generate AI Protocol. Please try again later.");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleGenerateTemplate = async (testType, requestId) => {
+    setTemplateLoadingId(requestId);
+    try {
+      const systemPrompt = "You are an AI Clinical Laboratory Expert. Generate a standard reporting template for the requested lab test. Include typical parameters and standard reference ranges. Leave placeholders (like [VALUE]) for the actual numbers. Only output the template text, no introductory or conversational text.";
+      const response = await generateGroqResponse(systemPrompt, `Generate template for: ${testType}`);
+      setResultText(response);
+    } catch (err) {
+      setMessage("error:Failed to generate template.");
+    } finally {
+      setTemplateLoadingId(null);
     }
   };
 
@@ -244,7 +284,16 @@ export default function LabRequests() {
                     <div className="flex items-start justify-between flex-wrap gap-3">
                       <div>
                         <p className="font-semibold text-gray-800">{req.patient?.name}</p>
-                        <p className="text-sm text-gray-600">Test: {req.testType}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm text-gray-600">Test: {req.testType}</p>
+                          <button
+                            onClick={() => handleGetAiProtocol(req.testType)}
+                            className="flex items-center gap-1 text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-md hover:bg-blue-100 transition"
+                            title="Get AI Protocol Guide"
+                          >
+                            <FaLightbulb /> AI Protocol
+                          </button>
+                        </div>
                         <p className="text-xs text-gray-400">Doctor: {req.doctor?.name}</p>
                         {req.description && (
                           <p className="text-xs text-gray-500 mt-1">{req.description}</p>
@@ -281,12 +330,23 @@ export default function LabRequests() {
                     {/* Accepted */}
                     {req.status === 'accepted' && (
                       <div className="mt-4 space-y-3">
+                        <div className="flex justify-between items-end">
+                          <label className="text-xs font-medium text-gray-500">Result Text</label>
+                          <button
+                            onClick={() => handleGenerateTemplate(req.testType, req._id)}
+                            disabled={templateLoadingId === req._id}
+                            className="flex items-center gap-1 text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md hover:bg-indigo-100 transition disabled:opacity-50"
+                          >
+                            {templateLoadingId === req._id ? <FaSpinner className="animate-spin" /> : <FaLightbulb />}
+                            Generate AI Template
+                          </button>
+                        </div>
                         <textarea
-                          placeholder="Enter result text"
+                          placeholder="Enter result text or use AI template..."
                           value={resultText}
                           onChange={(e) => setResultText(e.target.value)}
                           className="w-full px-4 py-2 border border-gray-200 rounded-xl text-sm"
-                          rows="3"
+                          rows="6"
                         />
                         <div className="flex items-center gap-3">
                           <label className="flex items-center gap-2 cursor-pointer bg-gray-100 px-4 py-2 rounded-xl text-sm">
@@ -386,6 +446,43 @@ export default function LabRequests() {
           </div>
         )}
       </div>
+
+      {/* AI Protocol Modal */}
+      {showAiModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+            <div className="px-5 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <FaRobot className="text-xl text-blue-200" />
+                <h3 className="font-semibold">AI Protocol: {aiTestType}</h3>
+              </div>
+              <button onClick={() => setShowAiModal(false)} className="text-white/80 hover:text-white transition">
+                <FaTimes />
+              </button>
+            </div>
+            <div className="p-5 overflow-y-auto bg-gray-50 flex-1">
+              {aiLoading ? (
+                <div className="flex flex-col items-center justify-center py-10 text-gray-500">
+                  <FaSpinner className="animate-spin text-3xl text-blue-500 mb-3" />
+                  <p className="text-sm font-medium">Generating protocol from knowledge base...</p>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed prose prose-sm">
+                  {aiGuide}
+                </div>
+              )}
+            </div>
+            <div className="px-5 py-3 border-t border-gray-100 bg-white flex justify-end">
+              <button 
+                onClick={() => setShowAiModal(false)}
+                className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-200 transition"
+              >
+                Close Guide
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

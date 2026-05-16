@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from './DashboardLayout';
 import api from '../../api/axios';
-import { FaBox, FaPlus, FaCheckCircle, FaTimesCircle, FaClock } from 'react-icons/fa';
+import { FaBox, FaPlus, FaCheckCircle, FaTimesCircle, FaClock, FaLightbulb, FaSpinner } from 'react-icons/fa';
+import { generateGroqResponse } from '../../utils/groqApi';
 
 export default function SupplyRequests() {
   const [requests, setRequests] = useState([]);
@@ -14,6 +15,10 @@ export default function SupplyRequests() {
   });
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // AI Suggestion State
+  const [aiSuggesting, setAiSuggesting] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
 
   useEffect(() => {
     fetchRequests();
@@ -32,6 +37,37 @@ export default function SupplyRequests() {
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (e.target.name === 'itemName' && suggestions.length > 0) {
+      setSuggestions([]); // Clear suggestions when user types a new item
+    }
+  };
+
+  const handleSuggest = async () => {
+    if (!formData.itemName.trim()) {
+      setMessage('error:Please enter an item name first to get suggestions.');
+      return;
+    }
+
+    setAiSuggesting(true);
+    setSuggestions([]);
+    
+    try {
+      const systemPrompt = "You are an AI hospital supply assistant. Given an item a cleaning staff member is requesting, suggest 3-5 related cleaning supplies or PPE they might also need. Return ONLY a comma-separated list of items, no other text.";
+      const response = await generateGroqResponse(systemPrompt, formData.itemName);
+      
+      const items = response.split(',').map(item => item.trim()).filter(Boolean);
+      setSuggestions(items);
+    } catch (error) {
+      console.error(error);
+      setMessage('error:Failed to get AI suggestions');
+    } finally {
+      setAiSuggesting(false);
+    }
+  };
+
+  const applySuggestion = (suggestion) => {
+    setFormData({ ...formData, itemName: suggestion });
+    setSuggestions([]); // Clear after applying
   };
 
   const handleSubmit = async (e) => {
@@ -146,7 +182,20 @@ export default function SupplyRequests() {
             <h2 className="display-font text-xl font-semibold text-gray-800 mb-4">Request Supplies</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Item Name</label>
+                <div className="flex justify-between items-end mb-1">
+                  <label className="block text-sm font-medium text-gray-700">Item Name</label>
+                  {formData.itemName && (
+                    <button
+                      type="button"
+                      onClick={handleSuggest}
+                      disabled={aiSuggesting}
+                      className="text-xs text-purple-600 font-medium hover:text-purple-700 flex items-center gap-1 bg-purple-50 px-2 py-1 rounded-md transition disabled:opacity-50"
+                    >
+                      {aiSuggesting ? <FaSpinner className="animate-spin" /> : <FaLightbulb />}
+                      Suggest related
+                    </button>
+                  )}
+                </div>
                 <input
                   type="text"
                   name="itemName"
@@ -156,6 +205,22 @@ export default function SupplyRequests() {
                   placeholder="e.g., Disinfectant spray"
                   required
                 />
+                
+                {suggestions.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="text-xs text-gray-500 pt-1">Suggestions:</span>
+                    {suggestions.map((item, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => applySuggestion(item)}
+                        className="bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded-md hover:bg-purple-200 transition"
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>

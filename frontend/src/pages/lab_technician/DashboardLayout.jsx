@@ -2,6 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { FaHome, FaFlask, FaUser, FaSignOutAlt } from 'react-icons/fa';
+import AILabAssistant from '../../components/AILabAssistant';
 
 export default function DashboardLayout({ children, activePage }) {
   const { user, logout } = useAuth();
@@ -126,6 +127,9 @@ export default function DashboardLayout({ children, activePage }) {
       <main className="lab-main flex-1 ml-20 p-8 min-h-screen" style={{ background: '#f8faff' }}>
         {children}
       </main>
+
+      {/* AI Assistant Chatbot */}
+      <AILabAssistant />
     </div>
   );
 }

@@ -26,3 +26,7 @@ build/
 
 # Uploaded files (if you store them locally)
 uploads/
+
+# Videos and temp files
+*.mp4
+*.mjs

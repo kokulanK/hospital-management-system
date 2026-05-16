@@ -71,7 +71,17 @@ export default function AppRoutes() {
   if (loading) return <div>Loading...</div>;
 
   const RedirectIfAuth = ({ children }) => {
-    if (user?.role) return <Navigate to={`/dashboard/${user.role}`} replace />;
+    if (user?.role) {
+      const routes = {
+        patient: "/dashboard/patient",
+        doctor: "/dashboard/doctor",
+        receptionist: "/dashboard/receptionist",
+        labTechnician: "/dashboard/labtechnician",
+        admin: "/dashboard/admin",
+        cleaningStaff: "/dashboard/cleaning",
+      };
+      return <Navigate to={routes[user.role] || "/"} replace />;
+    }
     return children;
   };
 

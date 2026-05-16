@@ -105,7 +105,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/cleaning-tasks', cleaningTaskRoutes);
 app.use('/api/supply-requests', supplyRequestRoutes);
 app.use('/api/chat', chatRoutes);
-app.use('/api/patient', patientRoutes); // ✅ NEW
+app.use('/api/staff-chat', require('./routes/staffChatRoutes')); // ✅ NEW
+app.use('/api/patient', patientRoutes);
 
 // ===============================
 // Server Start
