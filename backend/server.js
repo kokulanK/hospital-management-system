@@ -21,6 +21,10 @@ const supplyRequestRoutes = require('./routes/supplyRequestRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const patientRoutes = require('./routes/patientRoutes'); // ✅ NEW
 
+const wardRoutes = require('./routes/wardRoutes');
+const admissionRoutes = require('./routes/admissionRoutes');
+const visitorRoutes = require('./routes/visitorRoutes');
+
 const User = require('./models/User');
 const bcrypt = require('bcryptjs');
 
@@ -107,6 +111,10 @@ app.use('/api/supply-requests', supplyRequestRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/staff-chat', require('./routes/staffChatRoutes')); // ✅ NEW
 app.use('/api/patient', patientRoutes);
+
+app.use('/api/ward', wardRoutes);
+app.use('/api/admissions', admissionRoutes);
+app.use('/api/visitors', visitorRoutes);
 
 // ===============================
 // Server Start

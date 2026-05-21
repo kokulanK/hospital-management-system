@@ -1,7 +1,7 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import {
-  FaHome, FaClock, FaCalendarAlt, FaStar, FaUser, FaFlask, FaSignOutAlt
+  FaHome, FaClock, FaCalendarAlt, FaStar, FaUser, FaFlask, FaSignOutAlt, FaProcedures
 } from 'react-icons/fa';
 import AIDoctorAssistant from '../../components/AIDoctorAssistant';
 
@@ -15,6 +15,7 @@ export default function DashboardLayout({ children, activePage }) {
     { to: '/dashboard/doctor/appointments', icon: FaCalendarAlt, label: 'Appointments', key: 'appointments' },
     { to: '/dashboard/doctor/feedback', icon: FaStar, label: 'Feedback', key: 'feedback' },
     { to: '/dashboard/doctor/lab-requests', icon: FaFlask, label: 'Lab Requests', key: 'labrequests' },
+    { to: '/dashboard/doctor/admissions', icon: FaProcedures, label: 'Admissions', key: 'admissions' },
     { to: '/dashboard/doctor/profile', icon: FaUser, label: 'Profile', key: 'profile' },
   ];
 

@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { FaHome, FaCalendarAlt, FaMicroscope, FaUser, FaSignOutAlt, FaBroom } from 'react-icons/fa';
+import { FaHome, FaCalendarAlt, FaMicroscope, FaUser, FaSignOutAlt, FaBroom, FaHospitalAlt } from 'react-icons/fa';
 
 export default function DashboardLayout({ children, activePage }) {
   const { user, logout } = useAuth();
@@ -11,6 +11,7 @@ export default function DashboardLayout({ children, activePage }) {
     { to: '/dashboard/receptionist/appointments', icon: FaCalendarAlt, label: 'Appointments', key: 'appointments' },
     { to: '/dashboard/receptionist/ai-scanner', icon: FaMicroscope, label: 'AI Scanner', key: 'aiscanner' },
     { to: '/dashboard/receptionist/cleaning-tasks', icon: FaBroom, label: 'Cleaning Tasks', key: 'cleaning' },
+    { to: '/dashboard/receptionist/ward-management', icon: FaHospitalAlt, label: 'Ward Mgt', key: 'ward-management' },
     { to: '/dashboard/receptionist/profile', icon: FaUser, label: 'Profile', key: 'profile' }, // <-- new link
   ];
 

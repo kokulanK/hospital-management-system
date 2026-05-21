@@ -11,6 +11,7 @@ import DoctorAppointments from './pages/doctor/Appointments';
 import DoctorFeedback from './pages/doctor/Feedback';
 import DoctorProfile from './pages/doctor/Profile';
 import DoctorLabRequests from './pages/doctor/LabRequests';
+import DoctorAdmissions from './pages/doctor/Admissions'; // ✅ NEW
 
 // Authentication pages
 import Login from "./pages/authentication/Login";
@@ -31,6 +32,7 @@ import Feedback from "./pages/patient/Feedback";
 import AIScanner from "./pages/patient/AIScanner";
 import Settings from "./pages/patient/Settings";
 import LabReports from './pages/patient/LabReports';
+import MyWard from './pages/patient/MyWard'; // ✅ NEW
 
 // Public Home page
 import Home from "./pages/Home";
@@ -49,6 +51,7 @@ import ReceptionistAppointments from './pages/receptionist/Appointments';
 import ReceptionistAIScanner from './pages/receptionist/AIScanner';
 import ReceptionistProfile from './pages/receptionist/Profile';
 import ReceptionistCleaningTasks from './pages/receptionist/CleaningTasks';
+import ReceptionistWardManagement from './pages/receptionist/WardManagement'; // ✅ NEW
 
 // Lab Technician pages
 import LabLayout from './pages/lab_technician/DashboardLayout';
@@ -109,6 +112,7 @@ export default function AppRoutes() {
       <Route path="/dashboard/patient/settings" element={<PrivateRoute allowedRoles={['patient']}><Settings /></PrivateRoute>} />
       <Route path="/dashboard/patient/book" element={<Navigate to="/dashboard/patient/appointments" replace />} />
       <Route path="/dashboard/patient/lab-reports" element={<PrivateRoute allowedRoles={['patient']}><LabReports /></PrivateRoute>} />
+      <Route path="/dashboard/patient/my-ward" element={<PrivateRoute allowedRoles={['patient']}><MyWard /></PrivateRoute>} />
 
       {/* Doctor routes */}
       <Route path="/dashboard/doctor" element={<PrivateRoute allowedRoles={["doctor"]}><DashboardDoctor /></PrivateRoute>} />
@@ -117,12 +121,14 @@ export default function AppRoutes() {
       <Route path="/dashboard/doctor/feedback" element={<PrivateRoute allowedRoles={["doctor"]}><DoctorFeedback /></PrivateRoute>} />
       <Route path="/dashboard/doctor/profile" element={<PrivateRoute allowedRoles={["doctor"]}><DoctorProfile /></PrivateRoute>} />
       <Route path="/dashboard/doctor/lab-requests" element={<PrivateRoute allowedRoles={['doctor']}><DoctorLabRequests /></PrivateRoute>} />
+      <Route path="/dashboard/doctor/admissions" element={<PrivateRoute allowedRoles={['doctor']}><DoctorAdmissions /></PrivateRoute>} />
 
       {/* Receptionist Routes */}
       <Route path="/dashboard/receptionist" element={<PrivateRoute allowedRoles={['receptionist']}><ReceptionistLayout activePage="home"><ReceptionistHome /></ReceptionistLayout></PrivateRoute>} />
       <Route path="/dashboard/receptionist/appointments" element={<PrivateRoute allowedRoles={['receptionist']}><ReceptionistLayout activePage="appointments"><ReceptionistAppointments /></ReceptionistLayout></PrivateRoute>} />
       <Route path="/dashboard/receptionist/cleaning-tasks" element={<PrivateRoute allowedRoles={['receptionist']}><ReceptionistLayout activePage="cleaning"><ReceptionistCleaningTasks /></ReceptionistLayout></PrivateRoute>} />
       <Route path="/dashboard/receptionist/ai-scanner" element={<PrivateRoute allowedRoles={['receptionist']}><ReceptionistLayout activePage="aiscanner"><ReceptionistAIScanner /></ReceptionistLayout></PrivateRoute>} />
+      <Route path="/dashboard/receptionist/ward-management" element={<PrivateRoute allowedRoles={['receptionist']}><ReceptionistLayout activePage="ward-management"><ReceptionistWardManagement /></ReceptionistLayout></PrivateRoute>} />
       <Route path="/dashboard/receptionist/profile" element={<PrivateRoute allowedRoles={['receptionist']}><ReceptionistLayout activePage="profile"><ReceptionistProfile /></ReceptionistLayout></PrivateRoute>} />
 
       {/* Lab Technician routes */}

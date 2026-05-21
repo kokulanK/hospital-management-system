@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { 
-  FaHome, FaUser, FaCalendarAlt, FaComment, FaMicroscope, FaCog, FaSignOutAlt, FaFileAlt 
+  FaHome, FaUser, FaCalendarAlt, FaComment, FaMicroscope, FaCog, FaSignOutAlt, FaFileAlt, FaHospitalUser 
 } from 'react-icons/fa';
 import Chatbot from './Chatbot';
 
@@ -30,6 +30,7 @@ export default function DashboardLayout({ children, activePage }) {
       { to: '/dashboard/patient/feedback',     icon: FaComment,    label: getLabel('feedback', 'Feedback'),     key: 'feedback' },
       { to: '/dashboard/patient/ai-scanner',   icon: FaMicroscope, label: getLabel('aiScanner', 'AI Scanner'),   key: 'aiscanner' },
       { to: '/dashboard/patient/lab-reports',  icon: FaFileAlt,    label: getLabel('labReports', 'Lab Reports'),  key: 'labreports' },
+      { to: '/dashboard/patient/my-ward',      icon: FaHospitalUser,label: getLabel('myWard', 'My Ward'),        key: 'my-ward' },
       { to: '/dashboard/patient/profile',      icon: FaUser,       label: getLabel('profile', 'Profile'),      key: 'profile' },
       { to: '/dashboard/patient/settings',     icon: FaCog,        label: getLabel('settings', 'Settings'),     key: 'settings' },
     ],
