@@ -77,15 +77,32 @@ exports.scanPass = async (req, res) => {
     }
 
     const now = new Date();
-    // Convert server UTC time to local Sri Lanka time
-    const localTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Colombo' }));
-    const currentMinutes = localTime.getHours() * 60 + localTime.getMinutes();
     
-    const [startH, startM] = settings.value.start.split(':').map(Number);
-    const [endH, endM] = settings.value.end.split(':').map(Number);
+    // Strictly extract the exact hour and minute in Sri Lanka time (Asia/Colombo)
+    const slTimeStr = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Colombo',
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: false
+    }).format(now); // returns format like "22:56"
     
+    const timeParts = slTimeStr.split(':').map(Number);
+    const currentH = timeParts[0] === 24 ? 0 : timeParts[0]; // Handle 24:00 as 00:00
+    const currentM = timeParts[1];
+    const currentMinutes = currentH * 60 + currentM;
+    
+    const normalizeTime = (t) => (t || '').replace('.', ':');
+    
+    let [startH, startM] = normalizeTime(settings.value.start).split(':').map(Number);
+    let [endH, endM] = normalizeTime(settings.value.end).split(':').map(Number);
+    
+    // Fallback for missing minutes
+    if (isNaN(startM)) startM = 0;
+    if (isNaN(endM)) endM = 0;
+    
+    // Handle 24:00 correctly for the end boundary
     const startMinutes = startH * 60 + startM;
-    const endMinutes = endH * 60 + endM;
+    const endMinutes = (endH === 24 ? 24 : endH) * 60 + endM;
 
     if (currentMinutes < startMinutes || currentMinutes > endMinutes) {
       return res.status(403).json({ 
