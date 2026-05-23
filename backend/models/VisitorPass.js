@@ -10,7 +10,8 @@ const visitorPassSchema = new mongoose.Schema({
     default: () => crypto.randomUUID(), 
     unique: true 
   },
-  status: { type: String, enum: ['active', 'revoked'], default: 'active' }
+  status: { type: String, enum: ['active', 'revoked'], default: 'active' },
+  isInside: { type: Boolean, default: false }
 }, { timestamps: true });
 
 module.exports = mongoose.model('VisitorPass', visitorPassSchema);

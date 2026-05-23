@@ -57,7 +57,15 @@ exports.scanPass = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Patient is no longer admitted.' });
     }
 
-    // Check visiting hours
+    // If visitor is currently INSIDE, they are checking out (leaving)
+    if (pass.isInside) {
+      pass.isInside = false;
+      await pass.save();
+      return res.json({ success: true, message: 'Gate Open - Goodbye!' });
+    }
+
+    // If visitor is currently OUTSIDE, they are checking in (entering)
+    // 1. Check visiting hours
     let settings = await Settings.findOne({ key: 'VISITING_HOURS' });
     if (!settings) {
       settings = { value: { start: '14:00', end: '16:00' } }; // fallback
@@ -72,11 +80,31 @@ exports.scanPass = async (req, res) => {
     const startMinutes = startH * 60 + startM;
     const endMinutes = endH * 60 + endM;
 
-    if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
-      return res.json({ success: true, message: 'Gate Open - Welcome!' });
-    } else {
-      return res.status(403).json({ success: false, message: `Access Denied. Visiting hours are between ${settings.value.start} and ${settings.value.end}.` });
+    if (currentMinutes < startMinutes || currentMinutes > endMinutes) {
+      return res.status(403).json({ 
+        success: false, 
+        message: `Access Denied. Visiting hours are between ${settings.value.start} and ${settings.value.end}.` 
+      });
     }
+
+    // 2. Enforce only 3 visitors currently inside for this patient
+    const currentInsideCount = await VisitorPass.countDocuments({ 
+      patient: pass.patient._id, 
+      isInside: true, 
+      status: 'active' 
+    });
+
+    if (currentInsideCount >= 3) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Access Denied. Maximum of 3 visitors allowed inside at the same time.' 
+      });
+    }
+
+    // Check-in success
+    pass.isInside = true;
+    await pass.save();
+    return res.json({ success: true, message: 'Gate Open - Welcome!' });
 
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
