@@ -3,11 +3,12 @@ import requests
 import time
 import threading
 from flask import Flask, jsonify
+import urllib.parse
 
 app = Flask(__name__)
 
 # --- Configuration ---
-ESP32_IP = "19:16:37.382"     # Replace with your ESP32's IP address (shown in Arduino serial monitor)
+ESP32_IP = "172.20.10.3"     # Replace with your ESP32's IP address (shown in Arduino serial monitor)
 BACKEND_URL = "https://hospital-backend-myqc.onrender.com/api/visitors/scan" # Node.js backend URL
 SCAN_TIMEOUT_SEC = 1000          # Auto-close webcam window after 15 seconds of inactivity
 
@@ -36,6 +37,13 @@ def run_qr_scanner():
     last_scanned_qr = None
     last_scanned_time = 0
     qr_removed = True
+    
+    # Non-blocking overlay state
+    overlay_time = 0
+    overlay_type = None
+    overlay_text1 = ""
+    overlay_text2 = ""
+    overlay_details = ""
 
     while is_scanning:
         # Check if the scanning session has timed out
@@ -105,63 +113,93 @@ def run_qr_scanner():
                     if response.status_code == 200 and res_data.get("success") == True:
                         print("[ACCESS] SUCCESS! Valid pass.")
                         scan_success = True
-                        # Instruct ESP32 to open the gate
+                        
+                        # Prepare LCD Message
+                        raw_msg = res_data.get("message", "Welcome!")
+                        msg1 = "Goodbye!" if "Goodbye" in raw_msg else "Welcome!"
+                        
+                        visitor_name = res_data.get("visitorName", "")
+                        msg2 = visitor_name if visitor_name else "Access Granted"
+                        
+                        # Instruct ESP32 to open the gate and update LCD in background thread
                         try:
-                            requests.get(f"http://{ESP32_IP}/gate?action=open", timeout=2)
+                            url = f"http://{ESP32_IP}/gate?action=open&msg1={urllib.parse.quote(msg1)}&msg2={urllib.parse.quote(msg2)}"
+                            def send_req(u):
+                                try: requests.get(u, timeout=2)
+                                except Exception as err: pass
+                            threading.Thread(target=send_req, args=(url,)).start()
                         except Exception as esp_err:
                             print(f"[WARN] Could not contact ESP32: {esp_err}")
                         
-                        # Visual feedback: Draw a solid green overlay with text
-                        cv2.rectangle(frame, (0, 0), (w, h), (0, 255, 0), 10)
-                        cv2.putText(frame, "ACCESS GRANTED", (w//4, h//2 - 20), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 3, cv2.LINE_AA)
-                        cv2.putText(frame, res_data.get("message", "Welcome!"), (w//6, h//2 + 30), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
-                        
-                        # Display visitor name and phone
+                        # Trigger visual feedback overlay
+                        overlay_time = time.time()
+                        overlay_type = "success"
+                        overlay_text1 = "ACCESS GRANTED"
+                        overlay_text2 = res_data.get("message", "Welcome!")
+                        details = ""
                         visitor_name = res_data.get("visitorName", "")
                         visitor_phone = res_data.get("visitorPhone", "")
                         if visitor_name or visitor_phone:
                             details = f"{visitor_name} - {visitor_phone}".strip(" -")
-                            cv2.putText(frame, details, (w//6, h//2 + 70), 
-                                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
-                                        
-                        cv2.imshow("Hospital Gate QR Scanner", frame)
-                        cv2.waitKey(2000) # Show success screen for 2 seconds
+                        overlay_details = details
                         
                         # Reset timeout start time for the next person
                         start_time = time.time()
                     else:
                         print("[ACCESS] DENIED! Pass is invalid, expired, or out of visiting hours.")
-                        # Instruct ESP32 to play access denied sound
+                        
+                        # Prepare LCD Error Message (max 16 chars per line)
+                        err_msg = res_data.get("message", "Invalid Pass")
+                        if "Visiting hours" in err_msg:
+                            msg1 = "Not Visting Time"
+                            msg2 = "See Receptionist"
+                        elif "Maximum" in err_msg:
+                            msg1 = "Limit Reached"
+                            msg2 = "3 Visitors Max"
+                        elif "admitted" in err_msg.lower():
+                            msg1 = "Patient Left"
+                            msg2 = "Not Admitted"
+                        else:
+                            msg1 = "Access Denied"
+                            msg2 = "Invalid Pass"
+
+                        # Instruct ESP32 to play access denied sound and update LCD in background thread
                         try:
-                            requests.get(f"http://{ESP32_IP}/gate?action=deny", timeout=2)
+                            url = f"http://{ESP32_IP}/gate?action=deny&msg1={urllib.parse.quote(msg1)}&msg2={urllib.parse.quote(msg2)}"
+                            def send_req(u):
+                                try: requests.get(u, timeout=2)
+                                except Exception as err: pass
+                            threading.Thread(target=send_req, args=(url,)).start()
                         except Exception as esp_err:
                             print(f"[WARN] Could not contact ESP32: {esp_err}")
                         
-                        # Visual feedback: Red overlay
-                        cv2.rectangle(frame, (0, 0), (w, h), (0, 0, 255), 10)
-                        cv2.putText(frame, "ACCESS DENIED", (w//4, h//2), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3, cv2.LINE_AA)
-                        cv2.putText(frame, res_data.get("message", "Invalid Pass"), (w//12, h//2 + 50), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2, cv2.LINE_AA)
-                        cv2.imshow("Hospital Gate QR Scanner", frame)
-                        cv2.waitKey(2000) # Show error screen for 2 seconds
+                        # Trigger visual feedback overlay
+                        overlay_time = time.time()
+                        overlay_type = "error"
+                        overlay_text1 = "ACCESS DENIED"
+                        overlay_text2 = res_data.get("message", "Invalid Pass")
+                        overlay_details = ""
                         
                         # Reset timeout start time so they have time to scan another pass
                         start_time = time.time()
                 except Exception as e:
                     print(f"[ERROR] API request failed: {e}")
-                    # Tell ESP32 to beep error
+                    # Tell ESP32 to beep error in background thread
                     try:
-                        requests.get(f"http://{ESP32_IP}/gate?action=deny", timeout=2)
+                        url = f"http://{ESP32_IP}/gate?action=deny"
+                        def send_req(u):
+                            try: requests.get(u, timeout=2)
+                            except Exception as err: pass
+                        threading.Thread(target=send_req, args=(url,)).start()
                     except:
                         pass
-                    cv2.rectangle(frame, (0, 0), (w, h), (0, 165, 255), 10)
-                    cv2.putText(frame, "SERVER ERROR", (w//4, h//2), 
-                                cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 165, 255), 3, cv2.LINE_AA)
-                    cv2.imshow("Hospital Gate QR Scanner", frame)
-                    cv2.waitKey(2000)
+                        
+                    # Trigger server error overlay
+                    overlay_time = time.time()
+                    overlay_type = "server_error"
+                    overlay_text1 = "SERVER ERROR"
+                    overlay_text2 = "API Failed"
+                    overlay_details = ""
         else:
             # If no QR code is detected in this frame, reset the qr_removed flag
             qr_removed = True
@@ -178,6 +216,22 @@ def run_qr_scanner():
         remaining = int(SCAN_TIMEOUT_SEC - (time.time() - start_time))
         cv2.putText(frame, f"Scanner active. Timeout in {remaining}s...", (20, h - 20), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+
+        # Draw overlay if active
+        if time.time() - overlay_time < 2.0:
+            if overlay_type == "success":
+                cv2.rectangle(frame, (0, 0), (w, h), (0, 255, 0), 10)
+                cv2.putText(frame, overlay_text1, (w//4, h//2 - 20), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 3, cv2.LINE_AA)
+                cv2.putText(frame, overlay_text2, (w//6, h//2 + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
+                if overlay_details:
+                    cv2.putText(frame, overlay_details, (w//6, h//2 + 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
+            elif overlay_type == "error":
+                cv2.rectangle(frame, (0, 0), (w, h), (0, 0, 255), 10)
+                cv2.putText(frame, overlay_text1, (w//4, h//2), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3, cv2.LINE_AA)
+                cv2.putText(frame, overlay_text2, (w//12, h//2 + 50), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2, cv2.LINE_AA)
+            elif overlay_type == "server_error":
+                cv2.rectangle(frame, (0, 0), (w, h), (0, 165, 255), 10)
+                cv2.putText(frame, overlay_text1, (w//4, h//2), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 165, 255), 3, cv2.LINE_AA)
 
         # Show the camera feed
         cv2.imshow("Hospital Gate QR Scanner", frame)

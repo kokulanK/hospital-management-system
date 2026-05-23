@@ -14,12 +14,18 @@
  * - Speaker (8 Ohm, 0.25W):
  *   - Positive (+) -> 150 Ohm Resistor -> ESP32 GPIO 25 (DAC1)
  *   - Negative (-) -> ESP32 GND
+ * - I2C LCD Display (16x2):
+ *   - VCC -> ESP32 5V (VIN)
+ *   - GND -> ESP32 GND
+ *   - SDA -> ESP32 GPIO 21
+ *   - SCL -> ESP32 GPIO 22
  */
 
 #include <WiFi.h>
 #include <WebServer.h>
 #include <HTTPClient.h>
 #include <ESP32Servo.h>
+#include <LiquidCrystal_I2C.h>
 
 // --- Configuration ---
 const char* ssid = "iPhone";
@@ -41,6 +47,7 @@ const int CLOSE_DELAY_MS = 3000;
 // --- State Variables ---
 Servo gateServo;
 WebServer server(80);
+LiquidCrystal_I2C lcd(0x27, 16, 2); // Set the LCD address to 0x27 for a 16 chars and 2 line display
 bool gateOpen = false;
 bool visitorDetected = false;
 unsigned long lastVisitorTime = 0;
@@ -148,16 +155,27 @@ void handleRoot() {
 void handleGateControl() {
   if (server.hasArg("action")) {
     String action = server.arg("action");
+    
+    // Read optional LCD messages
+    String msg1 = server.hasArg("msg1") ? server.arg("msg1") : "";
+    String msg2 = server.hasArg("msg2") ? server.arg("msg2") : "";
+    
+    if (msg1 != "" || msg2 != "") {
+      lcd.clear();
+      if(msg1 != "") { lcd.setCursor(0, 0); lcd.print(msg1.substring(0, 16)); }
+      if(msg2 != "") { lcd.setCursor(0, 1); lcd.print(msg2.substring(0, 16)); }
+    }
+
     if (action == "open") {
-      openGate();
       server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"Gate opened\"}");
+      openGate();
     } else if (action == "close") {
-      closeGate();
       server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"Gate closed\"}");
+      closeGate();
     } else if (action == "deny") {
+      server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"Access denied played\"}");
       Serial.println("Access Denied signal received");
       playChimeDenied();
-      server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"Access denied played\"}");
     } else {
       server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid action\"}");
     }
@@ -178,14 +196,18 @@ void setup() {
   // Setup Speaker PWM (ESP32 Core v3.x API)
   ledcAttach(SPEAKER_PIN, 2000, 8);
 
-  // Setup Servo
+  // Setup Servo - Only allocate ONE timer to avoid conflict with the Speaker's LEDC peripheral
   ESP32PWM::allocateTimer(0);
-  ESP32PWM::allocateTimer(1);
-  ESP32PWM::allocateTimer(2);
-  ESP32PWM::allocateTimer(3);
   gateServo.setPeriodHertz(50);
   gateServo.attach(SERVO_PIN, 500, 2400);
   gateServo.write(0);
+
+  // Setup LCD
+  lcd.init();
+  lcd.backlight();
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("System Starting");
 
   // Connect to Wi-Fi
   Serial.println();
@@ -205,6 +227,20 @@ void setup() {
   Serial.print("ESP32 Local IP address: ");
   Serial.println(WiFi.localIP());
 
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Wi-Fi Connected!");
+  lcd.setCursor(0, 1);
+  lcd.print(WiFi.localIP().toString());
+  
+  // Show IP for 3 seconds then go to default waiting screen
+  delay(3000);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Waiting for");
+  lcd.setCursor(0, 1);
+  lcd.print("visitor...");
+
   // Setup HTTP Endpoints
   server.on("/", handleRoot);
   server.on("/gate", handleGateControl);
@@ -218,9 +254,9 @@ void loop() {
 
   long distance = getDistance();
 
-  // Debug output every second
+  // Debug output every 100ms for super-fast real-time updates
   static unsigned long lastDebugTime = 0;
-  if (millis() - lastDebugTime > 1000) {
+  if (millis() - lastDebugTime > 100) {
     Serial.print("Distance: ");
     Serial.print(distance);
     Serial.print(" cm | Gate: ");
@@ -235,6 +271,12 @@ void loop() {
     if (!visitorDetected) {
       Serial.println("Visitor entered range!");
       visitorDetected = true;
+      
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Welcome!");
+      lcd.setCursor(0, 1);
+      lcd.print("Scan to continue");
 
       if (millis() - scanCooldownTime > 8000) {
         playChimeDetect();
@@ -246,6 +288,11 @@ void loop() {
     if (visitorDetected && (millis() - lastVisitorTime > 1500)) {
       Serial.println("Visitor left range.");
       visitorDetected = false;
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Waiting for");
+      lcd.setCursor(0, 1);
+      lcd.print("visitor...");
     }
   }
 
