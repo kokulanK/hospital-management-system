@@ -35,6 +35,7 @@ def run_qr_scanner():
     
     last_scanned_qr = None
     last_scanned_time = 0
+    qr_removed = True
 
     while is_scanning:
         # Check if the scanning session has timed out
@@ -69,8 +70,9 @@ def run_qr_scanner():
         if data:
             data_str = data.strip()
             
-            # Prevent scanning the same QR code repeatedly within 5 seconds
-            if data_str != last_scanned_qr or (time.time() - last_scanned_time > 5):
+            # Prevent scanning the same QR code repeatedly unless it is removed from view or 15 seconds pass
+            if qr_removed or (data_str != last_scanned_qr) or (time.time() - last_scanned_time > 15):
+                qr_removed = False
                 last_scanned_qr = data_str
                 last_scanned_time = time.time()
                 
@@ -111,10 +113,19 @@ def run_qr_scanner():
                         
                         # Visual feedback: Draw a solid green overlay with text
                         cv2.rectangle(frame, (0, 0), (w, h), (0, 255, 0), 10)
-                        cv2.putText(frame, "ACCESS GRANTED", (w//4, h//2), 
+                        cv2.putText(frame, "ACCESS GRANTED", (w//4, h//2 - 20), 
                                     cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 3, cv2.LINE_AA)
-                        cv2.putText(frame, res_data.get("message", "Welcome!"), (w//6, h//2 + 50), 
+                        cv2.putText(frame, res_data.get("message", "Welcome!"), (w//6, h//2 + 30), 
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
+                        
+                        # Display visitor name and phone
+                        visitor_name = res_data.get("visitorName", "")
+                        visitor_phone = res_data.get("visitorPhone", "")
+                        if visitor_name or visitor_phone:
+                            details = f"{visitor_name} - {visitor_phone}".strip(" -")
+                            cv2.putText(frame, details, (w//6, h//2 + 70), 
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
+                                        
                         cv2.imshow("Hospital Gate QR Scanner", frame)
                         cv2.waitKey(2000) # Show success screen for 2 seconds
                         
@@ -141,16 +152,19 @@ def run_qr_scanner():
                         start_time = time.time()
                 except Exception as e:
                     print(f"[ERROR] API request failed: {e}")
-                # Tell ESP32 to beep error
-                try:
-                    requests.get(f"http://{ESP32_IP}/gate?action=deny", timeout=2)
-                except:
-                    pass
-                cv2.rectangle(frame, (0, 0), (w, h), (0, 165, 255), 10)
-                cv2.putText(frame, "SERVER ERROR", (w//4, h//2), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 165, 255), 3, cv2.LINE_AA)
-                cv2.imshow("Hospital Gate QR Scanner", frame)
-                cv2.waitKey(2000)
+                    # Tell ESP32 to beep error
+                    try:
+                        requests.get(f"http://{ESP32_IP}/gate?action=deny", timeout=2)
+                    except:
+                        pass
+                    cv2.rectangle(frame, (0, 0), (w, h), (0, 165, 255), 10)
+                    cv2.putText(frame, "SERVER ERROR", (w//4, h//2), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 165, 255), 3, cv2.LINE_AA)
+                    cv2.imshow("Hospital Gate QR Scanner", frame)
+                    cv2.waitKey(2000)
+        else:
+            # If no QR code is detected in this frame, reset the qr_removed flag
+            qr_removed = True
 
         # Draw a scanning reticle/box in the middle of screen
         box_w, box_h = 300, 300

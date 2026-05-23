@@ -61,7 +61,12 @@ exports.scanPass = async (req, res) => {
     if (pass.isInside) {
       pass.isInside = false;
       await pass.save();
-      return res.json({ success: true, message: 'Gate Open - Goodbye!' });
+      return res.json({ 
+        success: true, 
+        message: 'Gate Open - Goodbye!',
+        visitorName: pass.visitorName,
+        visitorPhone: pass.visitorPhone
+      });
     }
 
     // If visitor is currently OUTSIDE, they are checking in (entering)
@@ -104,7 +109,12 @@ exports.scanPass = async (req, res) => {
     // Check-in success
     pass.isInside = true;
     await pass.save();
-    return res.json({ success: true, message: 'Gate Open - Welcome!' });
+    return res.json({ 
+      success: true, 
+      message: 'Gate Open - Welcome!',
+      visitorName: pass.visitorName,
+      visitorPhone: pass.visitorPhone
+    });
 
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
