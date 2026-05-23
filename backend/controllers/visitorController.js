@@ -77,7 +77,9 @@ exports.scanPass = async (req, res) => {
     }
 
     const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    // Convert server UTC time to local Sri Lanka time
+    const localTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Colombo' }));
+    const currentMinutes = localTime.getHours() * 60 + localTime.getMinutes();
     
     const [startH, startM] = settings.value.start.split(':').map(Number);
     const [endH, endM] = settings.value.end.split(':').map(Number);
