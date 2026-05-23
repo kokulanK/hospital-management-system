@@ -117,6 +117,27 @@ app.use('/api/admissions', admissionRoutes);
 app.use('/api/visitors', visitorRoutes);
 
 // ===============================
+// Cron Jobs
+// ===============================
+const cron = require('node-cron');
+const VisitorPass = require('./models/VisitorPass');
+
+// Run every night at 24:00 (Midnight) Sri Lanka Time to reset all passes
+cron.schedule('0 0 * * *', async () => {
+  try {
+    const result = await VisitorPass.updateMany(
+      { status: 'active' },
+      { status: 'revoked', isInside: false }
+    );
+    console.log(`Midnight Cron: Revoked ${result.modifiedCount} active visitor passes.`);
+  } catch (err) {
+    console.error('Midnight Cron Error:', err);
+  }
+}, {
+  timezone: "Asia/Colombo"
+});
+
+// ===============================
 // Server Start
 // ===============================
 const PORT = process.env.PORT || 5000;
