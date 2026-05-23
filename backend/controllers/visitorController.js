@@ -100,11 +100,30 @@ exports.scanPass = async (req, res) => {
     if (isNaN(startM)) startM = 0;
     if (isNaN(endM)) endM = 0;
     
-    // Handle 24:00 correctly for the end boundary
+    // Convert 24:00 or 00:00 to logical end of day if it represents midnight
+    if (endH === 24) {
+      endH = 0;
+    }
+    
     const startMinutes = startH * 60 + startM;
-    const endMinutes = (endH === 24 ? 24 : endH) * 60 + endM;
+    let endMinutes = endH * 60 + endM;
+    
+    // If end time is 00:00, conceptually treat it as 24:00 (1440 mins) for normal shifts
+    if (endMinutes === 0 && startMinutes > 0) {
+      endMinutes = 1440;
+    }
 
-    if (currentMinutes < startMinutes || currentMinutes > endMinutes) {
+    let isOutsideHours = false;
+    if (startMinutes <= endMinutes) {
+      // Normal shift (e.g., 08:00 to 17:00)
+      isOutsideHours = (currentMinutes < startMinutes || currentMinutes > endMinutes);
+    } else {
+      // Overnight shift (e.g., 21:00 to 02:00)
+      // They are OUTSIDE if the current time is before the start AND after the end
+      isOutsideHours = (currentMinutes < startMinutes && currentMinutes > endMinutes);
+    }
+
+    if (isOutsideHours) {
       return res.status(403).json({ 
         success: false, 
         message: `Access Denied. Visiting hours are between ${settings.value.start} and ${settings.value.end}.` 
